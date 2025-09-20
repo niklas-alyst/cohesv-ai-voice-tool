@@ -1,0 +1,26 @@
+import boto3
+from config.settings import settings
+
+
+class S3StorageService:
+    def __init__(self):
+        self.s3_client = boto3.client(
+            "s3",
+            aws_access_key_id=settings.aws_access_key_id,
+            aws_secret_access_key=settings.aws_secret_access_key,
+            region_name=settings.aws_region,
+        )
+        self.bucket_name = settings.s3_bucket_name
+
+    async def upload_audio(self, audio_data: bytes, filename: str) -> str:
+        key = f"voice-notes/{filename}"
+        self.s3_client.put_object(
+            Bucket=self.bucket_name,
+            Key=key,
+            Body=audio_data,
+            ContentType="audio/ogg",
+        )
+        return key
+
+
+s3_service = S3StorageService()
