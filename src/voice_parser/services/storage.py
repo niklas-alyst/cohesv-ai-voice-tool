@@ -22,5 +22,9 @@ class S3StorageService:
         )
         return key
 
+    async def download_audio(self, key: str) -> bytes:
+        response = self.s3_client.get_object(Bucket=self.bucket_name, Key=key)
+        return response['Body'].read()
+
 
 s3_service = S3StorageService()

@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from services.whatsapp_client import whatsapp_client
 from services.storage import s3_service
+from services.transcription import whisper_client
 
 app = FastAPI(title="Voice Parser", version="0.1.0")
 
@@ -28,7 +29,13 @@ async def whatsapp_webhook(payload: dict):
             # Upload to S3
             s3_key = await s3_service.upload_audio(audio_data, f"{media_id}.ogg")
 
-            return {"status": "ok", "s3_key": s3_key}
+            # Download from S3 for transcription
+            audio_data = await s3_service.download_audio(s3_key)
+
+            # Transcribe audio
+            transcribed_text = await whisper_client.transcribe(audio_data, f"{media_id}.ogg")
+
+            return {"status": "ok", "s3_key": s3_key, "transcription": transcribed_text}
 
         return {"status": "ignored", "reason": "not an audio message"}
 
