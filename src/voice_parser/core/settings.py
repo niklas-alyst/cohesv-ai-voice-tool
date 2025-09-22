@@ -1,28 +1,26 @@
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
 
 class OpenAISettings(BaseSettings):
-    openai_api_key: str
+    model_config = ConfigDict(env_file=".env")
 
-    class Config:
-        env_file = ".env"
+    openai_api_key: str
 
 
 class S3Settings(BaseSettings):
+    model_config = ConfigDict(env_file=".env")
+
     aws_access_key_id: str
     aws_secret_access_key: str
     aws_region: str = "us-east-1"
     s3_bucket_name: str
 
-    class Config:
-        env_file = ".env"
-
 
 class WhatsAppSettings(BaseSettings):
-    whatsapp_access_token: str
+    model_config = ConfigDict(env_file=".env")
 
-    class Config:
-        env_file = ".env"
+    whatsapp_access_token: str
 
 
 def get_openai_settings() -> OpenAISettings:
