@@ -31,3 +31,6 @@ class S3StorageService:
     async def download(self, key: str) -> bytes:
         response = self.s3_client.get_object(Bucket=self.bucket_name, Key=key)
         return response['Body'].read()
+
+    async def delete(self, key: str) -> None:
+        self.s3_client.delete_object(Bucket=self.bucket_name, Key=key)
