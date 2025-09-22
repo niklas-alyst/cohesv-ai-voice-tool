@@ -1,5 +1,5 @@
 import boto3
-from config.settings import settings
+from voice_parser.core.config import settings
 
 
 class S3StorageService:

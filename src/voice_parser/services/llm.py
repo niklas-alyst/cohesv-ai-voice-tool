@@ -1,7 +1,7 @@
 import httpx
 from typing import List
 from pydantic import BaseModel
-from config.settings import settings
+from voice_parser.core.config import settings
 
 
 class VoiceNoteAnalysis(BaseModel):

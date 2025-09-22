@@ -10,6 +10,38 @@ This document details the technical architecture for the WhatsApp AI Assistant, 
 
 The core of the system is a Python application built with the FastAPI framework. This service contains all the business logic required to process a voice note, including orchestrating calls to external transcription (Whisper) and structuring (LLM) APIs.
 
+### **Package Structure**
+
+The application follows Python package best practices with proper module organization:
+
+```
+src/voice_parser/
+├── __init__.py                 # Package version
+├── main.py                     # FastAPI app with routers
+├── core/
+│   ├── __init__.py
+│   └── config.py              # Pydantic settings management
+├── api/
+│   ├── __init__.py
+│   └── routes/
+│       ├── __init__.py
+│       ├── health.py          # Health check endpoint
+│       └── webhook.py         # WhatsApp webhook endpoint
+└── services/                   # External service clients
+    ├── __init__.py
+    ├── whatsapp_client.py     # WhatsApp Graph API client
+    ├── storage.py             # AWS S3 operations
+    ├── transcription.py       # OpenAI Whisper client
+    └── llm.py                 # OpenAI GPT client for structuring
+```
+
+**Key architectural decisions:**
+- Package installed in editable mode using `uv pip install -e .`
+- All imports use absolute package paths (e.g., `from voice_parser.core.config import settings`)
+- Modular router-based API design with FastAPI
+- Service layer pattern for external integrations
+- Configuration management with Pydantic Settings
+
 ### **Data flow**
 
 This flow details the worker's process once a job has been placed on the message queue in the Phase 2 architecture.
@@ -36,11 +68,36 @@ Code snippet
     Worker Service (ECS)->>Database: Saves final JSON output
     Worker Service (ECS)->>AWS SQS: Deletes job message from queue`
 
+### **Development Commands**
+
+**Package management:**
+```bash
+# Install package in editable mode
+uv pip install -e .
+
+# Run development server with auto-reload
+uv run uvicorn voice_parser.main:app --reload
+
+# Run CLI entry point (when environment variables are set)
+uv run voice-parser
+```
+
+**Production serving:**
+```bash
+# Production server
+uv run uvicorn voice_parser.main:app --host 0.0.0.0 --port 8000
+```
+
 ### **Deployment**
 
 The Python FastAPI application will be containerized using a `Dockerfile`. This container will be deployed to **AWS Elastic Container Service (ECS)** using the **Fargate** launch type. Fargate allows us to run containers without managing servers or clusters.
 
 The ECS service will be configured to automatically scale the number of running worker tasks based on the number of messages visible in the SQS queue. This ensures that we can handle traffic spikes cost-effectively.
+
+**Container deployment:**
+- Base image: Python 3.13
+- Package installed as editable during container build
+- Entry point: `uvicorn voice_parser.main:app --host 0.0.0.0 --port 8000`
 
 ## **Storage - AWS S3**
 

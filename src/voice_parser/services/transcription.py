@@ -1,5 +1,5 @@
 import httpx
-from config.settings import settings
+from voice_parser.core.config import settings
 
 
 class WhisperClient:

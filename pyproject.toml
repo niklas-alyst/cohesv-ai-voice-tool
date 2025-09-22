@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.scripts]
-voice-parser = "voice_parser:main"
+voice-parser = "voice_parser.main:main"
 
 [build-system]
 requires = ["hatchling"]
