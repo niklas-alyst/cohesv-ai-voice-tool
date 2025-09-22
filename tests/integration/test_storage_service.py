@@ -16,11 +16,9 @@ def load_test_env():
 def test_s3_settings():
     """Create S3 settings using test environment variables"""
     return S3Settings(
-        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-        aws_region=os.getenv("AWS_REGION", "eu-north-1"),
+        aws_region=os.getenv("AWS_REGION"),
         s3_bucket_name=os.getenv("S3_BUCKET_NAME"),
-        s3_bucket_prefix=os.getenv("S3_BUCKET_PREFIX", "test"),
+        s3_bucket_prefix=os.getenv("S3_BUCKET_PREFIX"),
     )
 
 
@@ -34,7 +32,7 @@ def storage_service(test_s3_settings):
 def test_audio_file():
     """Provide path to test audio file"""
     test_dir = Path(__file__).parent.parent
-    audio_file = test_dir / "fixtures" / "test_audio.wav"
+    audio_file = test_dir / "fixtures" / "test_audio.ogg"
 
     if not audio_file.exists():
         pytest.skip(f"Test audio file not found: {audio_file}")
@@ -81,7 +79,7 @@ class TestS3StorageServiceIntegration:
     @pytest.mark.asyncio
     async def test_download_nonexistent_file_fails(self, storage_service):
         """Test that downloading a non-existent file raises an appropriate error"""
-        nonexistent_key = f"{storage_service.bucket_prefix}/voice-notes/nonexistent.wav"
+        nonexistent_key = f"{storage_service.bucket_prefix}/voice-notes/nonexistent.ogg"
 
         with pytest.raises(Exception):  # S3 will raise an error for missing files
             await storage_service.download(nonexistent_key)

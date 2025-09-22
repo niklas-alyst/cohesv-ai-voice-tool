@@ -30,7 +30,7 @@ def transcription_client(test_openai_settings):
 def test_audio_file():
     """Provide path to test audio file"""
     test_dir = Path(__file__).parent.parent
-    audio_file = test_dir / "fixtures" / "test_audio.wav"
+    audio_file = test_dir / "fixtures" / "test_audio.ogg"
 
     if not audio_file.exists():
         pytest.skip(f"Test audio file not found: {audio_file}")
@@ -67,5 +67,5 @@ class TestTranscriptionClientIntegration:
         with pytest.raises(Exception):  # OpenAI will raise an error for invalid audio
             await transcription_client.transcribe(
                 audio_data=b"",
-                filename="empty.wav"
+                filename="empty.ogg"
             )

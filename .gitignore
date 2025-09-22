@@ -14,3 +14,4 @@ wheels/
 .secrets
 .env
 .env.test
+tests/fixtures/test_audio.ogg
