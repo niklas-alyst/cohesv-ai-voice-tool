@@ -2,6 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Development guidelines
+- We use `uv` for this project, so all python code should be ran with `uv run ...`
+- NEVER modfiy `pyproject.toml` directly, use the corresponding `uv` commands, e.g. `uv add`
+- run linting after each development: `uv run ruff check`
+
 ## Project Overview
 
 This document details the technical architecture for the WhatsApp AI Assistant, built on Python and deployed on Amazon Web Services (AWS). The design follows a two-phase evolution. Phase 1 prioritizes rapid deployment with a single, unified service. Phase 2 transitions the system to a decoupled, queue-based architecture to enhance resilience and scalability. The core of the system is a worker service that contains all the business logic for processing voice notes.
