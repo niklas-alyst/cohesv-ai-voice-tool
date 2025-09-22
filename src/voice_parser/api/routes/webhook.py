@@ -32,7 +32,7 @@ async def whatsapp_webhook(payload: dict):
             s3_key = await s3_service.upload_audio(audio_data, f"{media_id}.ogg")
 
             # Download from S3 for transcription
-            audio_data = await s3_service.download_audio(s3_key)
+            audio_data = await s3_service.download(s3_key)
 
             # Transcribe audio
             transcribed_text = await transcription_client.transcribe(audio_data, f"{media_id}.ogg")
