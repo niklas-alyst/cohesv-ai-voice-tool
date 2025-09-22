@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from services.whatsapp_client import whatsapp_client
 from services.storage import s3_service
 from services.transcription import whisper_client
+from services.llm import llm_client
 
 app = FastAPI(title="Voice Parser", version="0.1.0")
 
@@ -35,7 +36,15 @@ async def whatsapp_webhook(payload: dict):
             # Transcribe audio
             transcribed_text = await whisper_client.transcribe(audio_data, f"{media_id}.ogg")
 
-            return {"status": "ok", "s3_key": s3_key, "transcription": transcribed_text}
+            # Structure the transcription with LLM
+            structured_analysis = await llm_client.structure_text(transcribed_text)
+
+            return {
+                "status": "ok",
+                "s3_key": s3_key,
+                "transcription": transcribed_text,
+                "analysis": structured_analysis.model_dump()
+            }
 
         return {"status": "ignored", "reason": "not an audio message"}
 

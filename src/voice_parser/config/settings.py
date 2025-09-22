@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     aws_region: str = "us-east-1"
     s3_bucket_name: str
     whisper_api_key: str
+    openai_api_key: str
 
     class Config:
         env_file = ".env"
