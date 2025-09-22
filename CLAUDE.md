@@ -20,7 +20,7 @@ src/voice_parser/
 ├── main.py                     # FastAPI app with routers
 ├── core/
 │   ├── __init__.py
-│   └── config.py              # Pydantic settings management
+│   └── settings.py              # Pydantic settings management
 ├── api/
 │   ├── __init__.py
 │   └── routes/
@@ -37,7 +37,6 @@ src/voice_parser/
 
 **Key architectural decisions:**
 - Package installed in editable mode using `uv pip install -e .`
-- All imports use absolute package paths (e.g., `from voice_parser.core.config import settings`)
 - Modular router-based API design with FastAPI
 - Service layer pattern for external integrations
 - Configuration management with Pydantic Settings

@@ -1,6 +1,6 @@
 import boto3
 from typing import Optional
-from voice_parser.core.config import S3Settings, get_s3_settings
+from voice_parser.core.settings import S3Settings, get_s3_settings
 
 
 class S3StorageService:

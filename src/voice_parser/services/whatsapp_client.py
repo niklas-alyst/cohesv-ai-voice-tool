@@ -1,6 +1,6 @@
 import httpx
 from typing import Optional
-from voice_parser.core.config import WhatsAppSettings, get_whatsapp_settings
+from voice_parser.core.settings import WhatsAppSettings, get_whatsapp_settings
 
 
 class WhatsAppClient:

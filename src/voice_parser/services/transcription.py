@@ -1,6 +1,6 @@
 from openai import AsyncOpenAI
 from typing import Optional
-from voice_parser.core.config import OpenAISettings, get_openai_settings
+from voice_parser.core.settings import OpenAISettings, get_openai_settings
 
 
 class WhisperClient:
