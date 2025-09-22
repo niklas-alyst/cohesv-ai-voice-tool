@@ -16,7 +16,6 @@ def test_openai_settings():
     """Create OpenAI settings using test environment variables"""
     return OpenAISettings(
         openai_api_key=os.getenv("OPENAI_API_KEY"),
-        whisper_api_key=os.getenv("OPENAI_API_KEY")  # Use same key for both
     )
 
 
