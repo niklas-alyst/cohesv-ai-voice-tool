@@ -1,9 +1,12 @@
 import httpx
-from voice_parser.core.config import settings
+from typing import Optional
+from voice_parser.core.config import WhatsAppSettings, get_whatsapp_settings
 
 
 class WhatsAppClient:
-    def __init__(self):
+    def __init__(self, settings: Optional[WhatsAppSettings] = None):
+        if settings is None:
+            settings = get_whatsapp_settings()
         self.access_token = settings.whatsapp_access_token
         self.base_url = "https://graph.facebook.com/v17.0"
 

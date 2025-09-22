@@ -1,21 +1,40 @@
 from pydantic_settings import BaseSettings
 
 
-class Settings(BaseSettings):
-    whatsapp_access_token: str
-    aws_access_key_id: str
-    aws_secret_access_key: str
-    aws_region: str = "us-east-1"
-    s3_bucket_name: str
-    whisper_api_key: str
+class OpenAISettings(BaseSettings):
     openai_api_key: str
+    whisper_api_key: str
 
     class Config:
         env_file = ".env"
 
 
-def get_settings() -> Settings:
-    return Settings()
+class S3Settings(BaseSettings):
+    aws_access_key_id: str
+    aws_secret_access_key: str
+    aws_region: str = "us-east-1"
+    s3_bucket_name: str
+
+    class Config:
+        env_file = ".env"
 
 
-settings = get_settings()
+class WhatsAppSettings(BaseSettings):
+    whatsapp_access_token: str
+
+    class Config:
+        env_file = ".env"
+
+
+def get_openai_settings() -> OpenAISettings:
+    return OpenAISettings()
+
+
+def get_s3_settings() -> S3Settings:
+    return S3Settings()
+
+
+def get_whatsapp_settings() -> WhatsAppSettings:
+    return WhatsAppSettings()
+
+

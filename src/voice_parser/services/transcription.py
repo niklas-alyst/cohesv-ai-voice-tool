@@ -1,33 +1,25 @@
-import httpx
-from voice_parser.core.config import settings
+from openai import AsyncOpenAI
+from typing import Optional
+from voice_parser.core.config import OpenAISettings, get_openai_settings
 
 
 class WhisperClient:
-    def __init__(self):
-        self.api_key = settings.whisper_api_key
-        self.base_url = "https://api.openai.com/v1/audio/transcriptions"
+    def __init__(self, settings: Optional[OpenAISettings] = None):
+        if settings is None:
+            settings = get_openai_settings()
+        self.client = AsyncOpenAI(api_key=settings.whisper_api_key)
 
     async def transcribe(self, audio_data: bytes, filename: str) -> str:
-        async with httpx.AsyncClient() as client:
-            files = {
-                "file": (filename, audio_data, "audio/ogg")
-            }
-            data = {
-                "model": "whisper-1"
-            }
-            headers = {
-                "Authorization": f"Bearer {self.api_key}"
-            }
+        # Create a file-like object from bytes
+        from io import BytesIO
+        audio_file = BytesIO(audio_data)
+        audio_file.name = filename
 
-            response = await client.post(
-                self.base_url,
-                files=files,
-                data=data,
-                headers=headers
-            )
-            response.raise_for_status()
-            result = response.json()
-            return result["text"]
+        transcription = await self.client.audio.transcriptions.create(
+            model="whisper-1",
+            file=audio_file
+        )
+        return transcription.text
 
 
 whisper_client = WhisperClient()

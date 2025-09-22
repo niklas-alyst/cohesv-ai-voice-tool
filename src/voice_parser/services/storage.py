@@ -1,9 +1,12 @@
 import boto3
-from voice_parser.core.config import settings
+from typing import Optional
+from voice_parser.core.config import S3Settings, get_s3_settings
 
 
 class S3StorageService:
-    def __init__(self):
+    def __init__(self, settings: Optional[S3Settings] = None):
+        if settings is None:
+            settings = get_s3_settings()
         self.s3_client = boto3.client(
             "s3",
             aws_access_key_id=settings.aws_access_key_id,
