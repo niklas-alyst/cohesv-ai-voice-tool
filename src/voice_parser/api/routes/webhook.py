@@ -1,9 +1,9 @@
 from fastapi import APIRouter
 
-from voice_parser.services.whatsapp_client import whatsapp_client
-from voice_parser.services.storage import s3_service
-from voice_parser.services.transcription import whisper_client
-from voice_parser.services.llm import llm_client
+from voice_parser.services.whatsapp_client import WhatsAppClient 
+from voice_parser.services.storage import S3StorageService 
+from voice_parser.services.transcription import TranscriptionClient
+from voice_parser.services.llm import LLMClient 
 
 router = APIRouter()
 
@@ -20,6 +20,11 @@ async def whatsapp_webhook(payload: dict):
         if message["type"] == "audio":
             media_id = message["audio"]["id"]
 
+            whatsapp_client = WhatsAppClient()
+            s3_service = S3StorageService()
+            transcription_client = TranscriptionClient()
+            llm_client = LLMClient()
+
             # Download audio from WhatsApp
             audio_data = await whatsapp_client.download_media(media_id)
 
@@ -30,7 +35,7 @@ async def whatsapp_webhook(payload: dict):
             audio_data = await s3_service.download_audio(s3_key)
 
             # Transcribe audio
-            transcribed_text = await whisper_client.transcribe(audio_data, f"{media_id}.ogg")
+            transcribed_text = await transcription_client.transcribe(audio_data, f"{media_id}.ogg")
 
             # Structure the transcription with LLM
             structured_analysis = await llm_client.structure_text(transcribed_text)

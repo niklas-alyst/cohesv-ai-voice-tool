@@ -47,6 +47,3 @@ class LLMClient:
 
         # Return the automatically parsed Pydantic object
         return completion.choices[0].message.parsed
-
-
-llm_client = LLMClient()

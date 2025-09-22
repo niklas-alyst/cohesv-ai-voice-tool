@@ -28,6 +28,3 @@ class WhatsAppClient:
             response = await client.get(media_url, headers=headers)
             response.raise_for_status()
             return response.content
-
-
-whatsapp_client = WhatsAppClient()
