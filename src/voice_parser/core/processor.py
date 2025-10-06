@@ -34,15 +34,29 @@ async def process_message(payload: WhatsAppWebhookPayload) -> Dict[str, Any]:
     Raises:
         Exception: If processing fails
     """
+    # Initialize WhatsApp client first (needed for sending responses)
+    whatsapp_client = WhatsAppClient()
+
     # Extract message
     message = payload.get_first_message()
     if not message:
         logger.warning("No message found in payload")
         return {"status": "ignored", "reason": "no message in payload"}
 
+    # Get message's phone number
+    message_phonenumber = payload.get_phonenumber()
+    if not message_phonenumber:
+        logger.error("Could not extract sender phone number")
+        return {"status": "error", "reason": "missing sender phone number"}
+
     # Check if it's an audio message
     if message.type != "audio":
         logger.info(f"Ignoring non-audio message type: {message.type}")
+        # Send response to user
+        await whatsapp_client.send_message(
+            recipient_phone=message_phonenumber,
+            body="Text messages are not supported, please send audio"
+        )
         return {"status": "ignored", "reason": f"not an audio message (type: {message.type})"}
 
     # Extract media ID
@@ -53,8 +67,7 @@ async def process_message(payload: WhatsAppWebhookPayload) -> Dict[str, Any]:
 
     logger.info(f"Processing audio message with media_id: {media_id}")
 
-    # Initialize service clients
-    whatsapp_client = WhatsAppClient()
+    # Initialize other service clients
     s3_service = S3StorageService()
     transcription_client = TranscriptionClient()
     llm_client = LLMClient()
@@ -78,6 +91,25 @@ async def process_message(payload: WhatsAppWebhookPayload) -> Dict[str, Any]:
     # Structure the transcription with LLM
     logger.info(f"Structuring transcription with LLM: {media_id}")
     structured_analysis = await llm_client.structure_text(transcribed_text)
+
+    # Format structured analysis for WhatsApp message
+    formatted_text = f"""*Summary:*
+{structured_analysis.summary}
+
+*Topics:*
+{chr(10).join(f'• {topic}' for topic in structured_analysis.topics)}
+
+*Action Items:*
+{chr(10).join(f'• {item}' for item in structured_analysis.action_items)}
+
+*Sentiment:* {structured_analysis.sentiment}"""
+
+    # Send structured analysis back to user
+    logger.info(f"Sending structured analysis to {message_phonenumber}")
+    await whatsapp_client.send_message(
+        recipient_phone=message_phonenumber,
+        body=f"Structured text: {formatted_text}"
+    )
 
     # TODO: Save to database (not yet implemented)
     logger.info(f"Processing complete for {media_id}")

@@ -92,3 +92,10 @@ class WhatsAppWebhookPayload(BaseModel):
         if message and message.type == "audio" and message.audio:
             return message.audio.id
         return None
+
+    def get_phonenumber(self) -> Optional[str]:
+        """Extract sender's phone number from the message."""
+        message = self.get_first_message()
+        if message:
+            return message.from_
+        return None
