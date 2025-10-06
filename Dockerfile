@@ -13,7 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ ./
 
 # Install the package
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 RUN pip install --no-deps .
 
 # Set the Lambda handler
