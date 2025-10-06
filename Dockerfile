@@ -1,13 +1,22 @@
 FROM public.ecr.aws/lambda/python:3.13
 
-# Copy requirements.txt
-COPY requirements.txt ${LAMBDA_TASK_ROOT}
+# Install uv for dependency management
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Install the specified packages
-RUN pip install -r requirements.txt
+# Set working directory
+WORKDIR ${LAMBDA_TASK_ROOT}
+
+# Copy dependency files
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies using uv
+RUN uv pip install --system -r pyproject.toml
 
 # Copy source code
-COPY src/ ${LAMBDA_TASK_ROOT}
+COPY src/ ./
 
-# Install the package in editable mode
-RUN pip install -e .
+# Install the package
+RUN uv pip install --system --no-deps .
+
+# Set the Lambda handler
+CMD ["voice_parser.worker_handler.lambda_handler"]

@@ -149,7 +149,7 @@ Code snippet
     participant API Gateway
     participant Lambda Function
     participant AWS SQS
-    participant Worker Service (ECS)
+    participant Worker Service (Lambda Function deployed via Docker)
 
     WhatsApp->>API Gateway: POST /webhook/whatsapp
     API Gateway->>Lambda Function: Invokes function with payload
@@ -161,5 +161,5 @@ Code snippet
 
     Note right of AWS SQS: Message waits in queue...
 
-    Worker Service (ECS)->>AWS SQS: Polls and receives message
-    Note over Worker Service (ECS): Begins long-running process (download, AI calls, etc.)`
+    Worker Service (Lambda Docker)->>AWS SQS: Polls and receives message
+    Note over Worker Service (ECS): Begins processing (download, AI calls, etc.)`
