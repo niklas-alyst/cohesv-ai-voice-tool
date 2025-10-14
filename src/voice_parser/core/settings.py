@@ -4,14 +4,13 @@ from pydantic_settings import BaseSettings
 
 class OpenAISettings(BaseSettings):
     model_config = ConfigDict(env_file=".env", extra="ignore")
-
     openai_api_key: str
 
 
 class S3Settings(BaseSettings):
     model_config = ConfigDict(env_file=".env", extra="ignore")
 
-    aws_region: str = "eu-north-1"
+    aws_region: str
     s3_bucket_name: str
     s3_bucket_prefix: str
 
