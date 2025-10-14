@@ -104,6 +104,9 @@ async def process_message(payload: WhatsAppWebhookPayload) -> Dict[str, Any]:
 
 *Sentiment:* {structured_analysis.sentiment}"""
 
+    # Save to database 
+    await s3_service.upload_text(formatted_text, filename=f"{s3_key}_summary.txt")
+    
     # Send structured analysis back to user
     logger.info(f"Sending structured analysis to {message_phonenumber}")
     await whatsapp_client.send_message(
@@ -111,7 +114,6 @@ async def process_message(payload: WhatsAppWebhookPayload) -> Dict[str, Any]:
         body=f"Structured text: {formatted_text}"
     )
 
-    # TODO: Save to database (not yet implemented)
     logger.info(f"Processing complete for {media_id}")
 
     return {
