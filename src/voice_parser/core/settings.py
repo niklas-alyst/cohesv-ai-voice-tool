@@ -1,6 +1,6 @@
 from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
-
+from typing import Optional
 
 class OpenAISettings(BaseSettings):
     model_config = ConfigDict(env_file=".env", extra="ignore")
@@ -13,6 +13,7 @@ class S3Settings(BaseSettings):
     aws_region: str
     s3_bucket_name: str
     s3_bucket_prefix: str
+    aws_profile: Optional[str]
 
 
 class WhatsAppSettings(BaseSettings):

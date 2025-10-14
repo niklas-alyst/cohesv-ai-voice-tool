@@ -11,7 +11,10 @@ class S3StorageService:
         if settings is None:
             settings = S3Settings()
 
-        self.s3_client = boto3.client(
+        self._session = boto3.Session(
+            profile_name=settings.aws_profile
+        )
+        self.s3_client = self._session.client(
             "s3",
             region_name=settings.aws_region,
         )
