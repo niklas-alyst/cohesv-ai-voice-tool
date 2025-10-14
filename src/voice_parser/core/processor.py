@@ -48,6 +48,8 @@ async def process_message(payload: WhatsAppWebhookPayload) -> Dict[str, Any]:
     if not message_phonenumber:
         logger.error("Could not extract sender phone number")
         return {"status": "error", "reason": "missing sender phone number"}
+    
+    logger.info(f"Received message from {message_phonenumber}")
 
     # Check if it's an audio message
     if message.type != "audio":
