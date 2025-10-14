@@ -1,7 +1,7 @@
 from openai import AsyncOpenAI
 from typing import List, Literal, Optional
 from pydantic import BaseModel, Field
-from voice_parser.core.settings import OpenAISettings, get_openai_settings
+from voice_parser.core.settings import OpenAISettings
 
 
 class VoiceNoteAnalysis(BaseModel):
@@ -22,7 +22,7 @@ class VoiceNoteAnalysis(BaseModel):
 class LLMClient:
     def __init__(self, settings: Optional[OpenAISettings] = None):
         if settings is None:
-            settings = get_openai_settings()
+            settings = OpenAISettings()
         self.client = AsyncOpenAI(api_key=settings.openai_api_key)
 
     async def structure_text(self, transcribed_text: str) -> VoiceNoteAnalysis:

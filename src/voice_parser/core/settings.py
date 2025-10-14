@@ -21,17 +21,3 @@ class WhatsAppSettings(BaseSettings):
 
     whatsapp_access_token: str
     whatsapp_business_phone_number_id: str  # Our business phone number ID (sender)
-
-
-def get_openai_settings() -> OpenAISettings:
-    return OpenAISettings()
-
-
-def get_s3_settings() -> S3Settings:
-    return S3Settings()
-
-
-def get_whatsapp_settings() -> WhatsAppSettings:
-    return WhatsAppSettings()
-
-

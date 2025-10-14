@@ -1,12 +1,15 @@
 import httpx
 from typing import Optional
-from voice_parser.core.settings import WhatsAppSettings, get_whatsapp_settings
+from voice_parser.core.settings import WhatsAppSettings
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class WhatsAppClient:
     def __init__(self, settings: Optional[WhatsAppSettings] = None):
         if settings is None:
-            settings = get_whatsapp_settings()
+            settings = WhatsAppSettings()
         self.access_token = settings.whatsapp_access_token
         self.business_phone_number_id = settings.whatsapp_business_phone_number_id
         self.base_url = "https://graph.facebook.com/v17.0"
@@ -56,8 +59,9 @@ class WhatsAppClient:
                 "body": body
             }
         }
-
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, headers=headers, json=payload)
-            response.raise_for_status()
-            return response.json()
+        logger.info(f"Sending POST to url {url} with payload {payload}")
+        logger.info(f"Dummy implementation, nothing sent")
+        # async with httpx.AsyncClient() as client:
+        #     response = await client.post(url, headers=headers, json=payload)
+        #     response.raise_for_status()
+        #     return response.json()

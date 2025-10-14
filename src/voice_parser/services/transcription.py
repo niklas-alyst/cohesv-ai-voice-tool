@@ -1,13 +1,13 @@
 from io import BytesIO
 from openai import AsyncOpenAI
 from typing import Optional
-from voice_parser.core.settings import OpenAISettings, get_openai_settings
+from voice_parser.core.settings import OpenAISettings
 
 
 class TranscriptionClient:
     def __init__(self, settings: Optional[OpenAISettings] = None):
         if settings is None:
-            settings = get_openai_settings()
+            settings = OpenAISettings()
         self.client = AsyncOpenAI(api_key=settings.openai_api_key)
 
     async def transcribe(self, audio_data: bytes, filename: str) -> str:
