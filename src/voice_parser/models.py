@@ -1,101 +1,77 @@
-"""Pydantic models for WhatsApp webhook payloads."""
+"""Pydantic models for Twilio WhatsApp webhook payloads."""
 
 from typing import Optional, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
-class Profile(BaseModel):
-    """Contact profile information."""
+class TwilioWebhookPayload(BaseModel):
+    """Twilio WhatsApp webhook payload.
 
-    name: str
+    Twilio sends a flat structure with form-encoded data.
+    See: https://www.twilio.com/docs/messaging/guides/webhook-request
+    """
 
+    # Message identifiers
+    MessageSid: str
+    AccountSid: str
 
-class Contact(BaseModel):
-    """Contact information from WhatsApp webhook."""
+    # Sender information
+    From: str  # Format: "whatsapp:+14155552671"
+    To: str    # Format: "whatsapp:+14155238886"
+    ProfileName: Optional[str] = None
+    WaId: Optional[str] = None  # WhatsApp ID without prefix
 
-    profile: Profile
-    wa_id: str
+    # Message content
+    Body: Optional[str] = None
 
+    # Media information
+    NumMedia: str = "0"  # String number of media attachments
+    MediaContentType0: Optional[str] = None
+    MediaUrl0: Optional[str] = None
+    MediaContentType1: Optional[str] = None
+    MediaUrl1: Optional[str] = None
 
-class AudioMessage(BaseModel):
-    """Audio message details."""
+    # Status and metadata
+    SmsStatus: Optional[str] = None
+    ApiVersion: Optional[str] = None
 
-    id: str
-    mime_type: str
-    sha256: str
-    voice: bool
+    class Config:
+        # Allow extra fields that Twilio might send
+        extra = "allow"
 
+    def get_message_type(self) -> Literal["text", "audio", "image", "video", "document", "unknown"]:
+        """Determine message type based on media content type."""
+        if int(self.NumMedia) == 0:
+            return "text"
 
-class TextMessage(BaseModel):
-    """Text message details."""
+        if self.MediaContentType0:
+            content_type = self.MediaContentType0.lower()
+            if content_type.startswith("audio/"):
+                return "audio"
+            elif content_type.startswith("image/"):
+                return "image"
+            elif content_type.startswith("video/"):
+                return "video"
+            else:
+                return "document"
 
-    body: str
+        return "unknown"
 
-
-class Metadata(BaseModel):
-    """Metadata about the WhatsApp business account."""
-
-    display_phone_number: str
-    phone_number_id: str
-
-
-class Message(BaseModel):
-    """Individual message from WhatsApp."""
-
-    from_: str = Field(alias="from")
-    id: str
-    timestamp: str
-    type: Literal["text", "audio", "image", "video", "document", "voice"]
-    text: Optional[TextMessage] = None
-    audio: Optional[AudioMessage] = None
-
-
-class Value(BaseModel):
-    """Value object containing message details."""
-
-    messaging_product: str
-    metadata: Metadata
-    contacts: list[Contact]
-    messages: list[Message]
-
-
-class Change(BaseModel):
-    """Change object in webhook payload."""
-
-    value: Value
-    field: str
-
-
-class Entry(BaseModel):
-    """Entry object in webhook payload."""
-
-    id: str
-    changes: list[Change]
-
-
-class WhatsAppWebhookPayload(BaseModel):
-    """Top-level WhatsApp webhook payload."""
-
-    object: Literal["whatsapp_business_account"]
-    entry: list[Entry]
-
-    def get_first_message(self) -> Optional[Message]:
-        """Extract the first message from the payload."""
-        try:
-            return self.entry[0].changes[0].value.messages[0]
-        except (IndexError, AttributeError):
-            return None
-
-    def get_media_id(self) -> Optional[str]:
-        """Extract media ID from audio message."""
-        message = self.get_first_message()
-        if message and message.type == "audio" and message.audio:
-            return message.audio.id
+    def get_media_url(self) -> Optional[str]:
+        """Extract the first media URL (typically for audio messages)."""
+        if int(self.NumMedia) > 0:
+            return self.MediaUrl0
         return None
 
-    def get_phonenumber(self) -> Optional[str]:
-        """Extract sender's phone number from the message."""
-        message = self.get_first_message()
-        if message:
-            return message.from_
-        return None
+    def get_phone_number(self) -> str:
+        """Extract sender's phone number (with whatsapp: prefix)."""
+        return self.From
+
+    def get_phone_number_without_prefix(self) -> str:
+        """Extract sender's phone number without whatsapp: prefix."""
+        # Remove "whatsapp:" prefix if present
+        return self.From.replace("whatsapp:", "")
+
+
+# Keep old name for backwards compatibility during migration
+WhatsAppWebhookPayload = TwilioWebhookPayload

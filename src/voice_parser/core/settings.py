@@ -16,8 +16,9 @@ class S3Settings(BaseSettings):
     aws_profile: Optional[str]
 
 
-class WhatsAppSettings(BaseSettings):
+class TwilioWhatsAppSettings(BaseSettings):
     model_config = ConfigDict(env_file=".env", extra="ignore")
 
-    whatsapp_access_token: str
-    whatsapp_business_phone_number_id: str  # Our business phone number ID (sender)
+    twilio_account_sid: str
+    twilio_auth_token: str
+    twilio_whatsapp_number: str  # Format: "whatsapp:+14155238886"

@@ -90,8 +90,8 @@ class TestProcessorIntegration:
             uploaded_keys.append(kwargs.get('filename', 'unknown'))
             return result
 
-        # Mock WhatsAppClient.send_message since it's called for text messages
-        with patch('voice_parser.core.processor.WhatsAppClient') as mock_whatsapp_class:
+        # Mock TwilioWhatsAppClient.send_message since it's called for text messages
+        with patch('voice_parser.core.processor.TwilioWhatsAppClient') as mock_whatsapp_class:
             mock_whatsapp_instance = MagicMock()
             mock_whatsapp_instance.send_message = AsyncMock()
             mock_whatsapp_class.return_value = mock_whatsapp_instance
@@ -113,7 +113,7 @@ class TestProcessorIntegration:
                 # Verify send_message was called with correct message
                 mock_whatsapp_instance.send_message.assert_called_once()
                 call_args = mock_whatsapp_instance.send_message.call_args
-                assert call_args.kwargs["recipient_phone"] == "14155552672"
+                assert "whatsapp:+14155552672" in call_args.kwargs["recipient_phone"]
                 assert "Text messages are not supported" in call_args.kwargs["body"]
 
                 # Verify NO S3 uploads occurred
@@ -126,14 +126,15 @@ class TestProcessorIntegration:
         self, audio_payload, test_audio_data, storage_service
     ):
         """Test that processing an audio message uploads to S3 and sends response"""
-        # Extract media_id from payload for tracking
-        media_id = audio_payload.get_media_id()
+        # Extract media_url from payload for tracking
+        media_url = audio_payload.get_media_url()
+        message_id = audio_payload.MessageSid
         uploaded_keys = []
 
         # Track actual S3 uploads for cleanup
         try:
-            # Mock WhatsAppClient
-            with patch('voice_parser.core.processor.WhatsAppClient') as mock_whatsapp_class:
+            # Mock TwilioWhatsAppClient
+            with patch('voice_parser.core.processor.TwilioWhatsAppClient') as mock_whatsapp_class:
                 mock_whatsapp_instance = MagicMock()
                 mock_whatsapp_instance.download_media = AsyncMock(return_value=test_audio_data)
                 mock_whatsapp_instance.send_message = AsyncMock()
@@ -144,7 +145,7 @@ class TestProcessorIntegration:
 
                 # Verify result
                 assert result["status"] == "success"
-                assert result["media_id"] == media_id
+                assert result["message_id"] == message_id
                 assert "s3_key" in result
                 assert "transcription_length" in result
                 assert "analysis" in result
@@ -152,13 +153,13 @@ class TestProcessorIntegration:
                 uploaded_keys.append(result["s3_key"])
                 uploaded_keys.append(f"{result['s3_key']}_summary.txt")
 
-                # Verify WhatsAppClient.download_media was called
-                mock_whatsapp_instance.download_media.assert_called_once_with(media_id)
+                # Verify TwilioWhatsAppClient.download_media was called with media_url
+                mock_whatsapp_instance.download_media.assert_called_once_with(media_url)
 
                 # Verify send_message was called
                 assert mock_whatsapp_instance.send_message.call_count == 1
                 call_args = mock_whatsapp_instance.send_message.call_args
-                assert call_args.kwargs["recipient_phone"] == "14155552671"
+                assert "whatsapp:+14155552671" in call_args.kwargs["recipient_phone"]
                 assert "Structured text:" in call_args.kwargs["body"]
 
                 # Verify S3 files were created
@@ -192,11 +193,10 @@ class TestProcessorIntegration:
         self, audio_payload, test_audio_data, storage_service
     ):
         """Test the structured response format sent via WhatsApp"""
-        media_id = audio_payload.get_media_id()
         uploaded_keys = []
 
         try:
-            with patch('voice_parser.core.processor.WhatsAppClient') as mock_whatsapp_class:
+            with patch('voice_parser.core.processor.TwilioWhatsAppClient') as mock_whatsapp_class:
                 mock_whatsapp_instance = MagicMock()
                 mock_whatsapp_instance.download_media = AsyncMock(return_value=test_audio_data)
                 mock_whatsapp_instance.send_message = AsyncMock()

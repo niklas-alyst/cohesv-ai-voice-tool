@@ -1,39 +1,12 @@
 {
-  "object": "whatsapp_business_account",
-  "entry": [
-    {
-      "id": "123456789012345",
-      "changes": [
-        {
-          "value": {
-            "messaging_product": "whatsapp",
-            "metadata": {
-              "display_phone_number": "15551234567",
-              "phone_number_id": "987654321098765"
-            },
-            "contacts": [
-              {
-                "profile": {
-                  "name": "Jane Smith"
-                },
-                "wa_id": "14155552672"
-              }
-            ],
-            "messages": [
-              {
-                "from": "14155552672",
-                "id": "wamid.HBgNMTQxNTU1NTI2NzIVAgARGBI2QTNDQTU1RTY5MTQ2M0U5ODYA",
-                "timestamp": "1698765500",
-                "type": "text",
-                "text": {
-                  "body": "Hello, this is a test message!"
-                }
-              }
-            ]
-          },
-          "field": "messages"
-        }
-      ]
-    }
-  ]
+  "MessageSid": "SM1234567890abcdef1234567890abcdef",
+  "AccountSid": "AC1234567890abcdef1234567890abcdef",
+  "From": "whatsapp:+14155552672",
+  "To": "whatsapp:+15551234567",
+  "Body": "Hello, this is a test message!",
+  "NumMedia": "0",
+  "ProfileName": "Jane Smith",
+  "WaId": "14155552672",
+  "SmsStatus": "received",
+  "ApiVersion": "2010-04-01"
 }

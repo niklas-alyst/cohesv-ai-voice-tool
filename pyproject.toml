@@ -12,6 +12,7 @@ dependencies = [
     "httpx>=0.25.0",
     "pydantic-settings>=2.0.0",
     "openai>=1.108.1",
+    "twilio>=9.8.4",
 ]
 
 [build-system]
