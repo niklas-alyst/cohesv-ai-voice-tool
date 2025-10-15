@@ -1,6 +1,7 @@
 import httpx
-from typing import Optional
+from typing import Dict, Optional
 from voice_parser.core.settings import TwilioWhatsAppSettings
+import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -54,8 +55,43 @@ class TwilioWhatsAppClient:
         }
 
         logger.info(f"Sending POST to url {url} with payload {payload}")
-        logger.info("Dummy implementation, nothing sent")
-        # async with httpx.AsyncClient() as client:
-        #     response = await client.post(url, data=payload, auth=self.auth)
-        #     response.raise_for_status()
-        #     return response.json()
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, data=payload, auth=self.auth)
+            response.raise_for_status()
+            return response.json()
+        
+    async def send_templated_message(
+        self,
+        recipient_phone: str,
+        content_sid: str,
+        content_variables: Optional[Dict[str, str]] = None
+    ) -> dict:
+        """
+        Send a templated WhatsApp message via Twilio.
+
+        Args:
+            recipient_phone: WhatsApp number in format "whatsapp:+1234567890"
+            content_sid: The SID of the template (e.g., "HXXXXXXXXXXXXXXXXX")
+            content_variables: A dict for template placeholders, e.g., {"1": "Joe", "2": "O1223"}
+
+        Returns:
+            dict: Response from Twilio API
+        """
+        if not recipient_phone.startswith("whatsapp:"):
+            recipient_phone = f"whatsapp:{recipient_phone}"
+
+        url = f"{self.base_url}/Messages.json"
+        payload = {
+            "From": self.from_number,
+            "To": recipient_phone,
+            "ContentSid": content_sid,
+        }
+        if content_variables:
+            # Twilio expects the variables as a JSON string
+            payload["ContentVariables"] = json.dumps(content_variables)
+
+        logger.info(f"Sending POST to url {url} with templated payload {payload}")
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, data=payload, auth=self.auth)
+            response.raise_for_status()
+            return response.json()
