@@ -22,7 +22,7 @@ For example, this could be
 
 Please extract summary, the job this is about, the context for the action items, and ALL action items mentioned.
 
-IMPORTANT: it's better to capture too many action items than to not capture enough
+IMPORTANT: it's CRITICAL that you don't infer any items from the message. Only capture what is explicitly said!
 """
 
 class VoiceNoteAnalysis(BaseModel):

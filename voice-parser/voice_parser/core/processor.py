@@ -108,9 +108,15 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
     
     # Send structured analysis back to user
     logger.info(f"Sending structured analysis to {message_phonenumber}")
+    message_body = f"""Here's the parsed action items sent to the Admin team:
+
+{formatted_text}
+
+Note: You cannot reply to this message. If you wish to add more action items, please send a new voice note
+"""
     await whatsapp_client.send_message(
         recipient_phone=message_phonenumber,
-        body=f"Here's the parsed action items sent to the Admin team: {formatted_text}"
+        body=message_body
     )
 
     logger.info(f"Processing complete for {message_id}")
