@@ -27,7 +27,7 @@ class TwilioWhatsAppClient:
         Returns:
             bytes: Media file content
         """
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             response = await client.get(media_url, auth=self.auth)
             response.raise_for_status()
             return response.content
