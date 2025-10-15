@@ -2,11 +2,10 @@
 
 import pytest
 import os
-import json
-import hmac
-import hashlib
+from urllib.parse import urlencode
 from dotenv import load_dotenv
 import httpx
+from twilio.request_validator import RequestValidator
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -25,205 +24,153 @@ def api_gateway_url():
 
 
 @pytest.fixture
-def verify_token():
-    """Get WhatsApp verify token from environment"""
-    token = os.getenv("WHATSAPP_VERIFY_TOKEN")
+def twilio_auth_token():
+    """Get Twilio auth token from environment"""
+    token = os.getenv("TWILIO_AUTH_TOKEN")
     if not token:
-        pytest.skip("WHATSAPP_VERIFY_TOKEN not configured in .env.test")
+        pytest.skip("TWILIO_AUTH_TOKEN not configured in .env.test")
     return token
 
 
 @pytest.fixture
-def app_secret():
-    """Get WhatsApp app secret from environment"""
-    secret = os.getenv("WHATSAPP_APP_SECRET")
-    if not secret:
-        pytest.skip("WHATSAPP_APP_SECRET not configured in .env.test")
-    return secret
+def validator(twilio_auth_token: str) -> RequestValidator:
+    """Fixture for the Twilio request validator."""
+    return RequestValidator(twilio_auth_token)
 
 
-def generate_signature(payload: str, app_secret: str) -> str:
-    """Generate X-Hub-Signature-256 header value"""
-    signature = hmac.new(
-        app_secret.encode("utf-8"),
-        payload.encode("utf-8"),
-        hashlib.sha256
-    ).hexdigest()
-    return f"sha256={signature}"
+class TestTwilioWebhookHandler:
+    """Integration tests for Twilio webhook handler (POST)"""
 
+    def test_successful_event_notification(self, api_gateway_url: str, validator: RequestValidator):
+        """Test successful processing of a valid Twilio notification"""
+        # The URL that Twilio would have requested
+        url = api_gateway_url
 
-class TestWebhookVerification:
-    """Integration tests for webhook verification endpoint (GET)"""
-
-    def test_successful_verification(self, api_gateway_url, verify_token):
-        """Test successful webhook verification with valid parameters"""
+        # The POST parameters
         params = {
-            "hub.mode": "subscribe",
-            "hub.verify_token": verify_token,
-            "hub.challenge": "test_challenge_12345"
+            'SmsMessageSid': 'SMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+            'NumMedia': '0',
+            'SmsSid': 'SMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+            'SmsStatus': 'received',
+            'Body': 'Hello',
+            'To': 'whatsapp:+14155238886',
+            'NumSegments': '1',
+            'MessageSid': 'SMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+            'AccountSid': 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+            'From': 'whatsapp:+15551234567',
+            'ApiVersion': '2010-04-01',
         }
 
-        response = httpx.get(api_gateway_url, params=params)
-
-        assert response.status_code == 200
-        assert response.text == "test_challenge_12345"
-
-    def test_invalid_verify_token(self, api_gateway_url):
-        """Test verification fails with invalid verify token"""
-        params = {
-            "hub.mode": "subscribe",
-            "hub.verify_token": "invalid_token_12345",
-            "hub.challenge": "test_challenge_12345"
-        }
-
-        response = httpx.get(api_gateway_url, params=params)
-
-        assert response.status_code == 403
-        assert "error" in response.json()
-
-    def test_invalid_hub_mode(self, api_gateway_url, verify_token):
-        """Test verification fails with invalid hub.mode"""
-        params = {
-            "hub.mode": "unsubscribe",
-            "hub.verify_token": verify_token,
-            "hub.challenge": "test_challenge_12345"
-        }
-
-        response = httpx.get(api_gateway_url, params=params)
-
-        assert response.status_code == 403
-        assert "error" in response.json()
-
-    def test_missing_parameters(self, api_gateway_url):
-        """Test verification fails with missing query parameters"""
-        response = httpx.get(api_gateway_url)
-
-        assert response.status_code == 400
-        assert "error" in response.json()
-
-
-class TestWebhookHandler:
-    """Integration tests for webhook event notification handler (POST)"""
-
-    def test_successful_event_notification(self, api_gateway_url, app_secret):
-        """Test successful processing of valid event notification"""
-        payload = {
-            "object": "whatsapp_business_account",
-            "entry": [
-                {
-                    "id": "123456789",
-                    "changes": [
-                        {
-                            "field": "messages",
-                            "value": {
-                                "messaging_product": "whatsapp",
-                                "metadata": {
-                                    "display_phone_number": "15551234567",
-                                    "phone_number_id": "987654321"
-                                }
-                            }
-                        }
-                    ]
-                }
-            ]
-        }
-
-        payload_str = json.dumps(payload)
-        signature = generate_signature(payload_str, app_secret)
+        # Generate a valid signature
+        signature = validator.compute_signature(url, params)
 
         headers = {
-            "Content-Type": "application/json",
-            "X-Hub-Signature-256": signature
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-Twilio-Signature": signature
         }
 
+        # The body should be a URL-encoded string
+        content = urlencode(params)
+
         response = httpx.post(
-            api_gateway_url,
+            url,
             headers=headers,
-            content=payload_str
+            content=content
         )
 
         assert response.status_code == 200
         assert response.json().get("status") == "received"
 
-    def test_invalid_signature(self, api_gateway_url):
+    def test_invalid_signature(self, api_gateway_url: str):
         """Test event notification fails with invalid signature"""
-        payload = {
-            "object": "whatsapp_business_account",
-            "entry": [{"id": "123"}]
+        params = {
+            'From': 'whatsapp:+15551234567',
+            'Body': 'test'
         }
-
-        payload_str = json.dumps(payload)
+        content = urlencode(params)
 
         headers = {
-            "Content-Type": "application/json",
-            "X-Hub-Signature-256": "sha256=invalid_signature_here"
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-Twilio-Signature": "invalid_signature_here"
         }
 
         response = httpx.post(
             api_gateway_url,
             headers=headers,
-            content=payload_str
+            content=content
         )
 
         assert response.status_code == 403
         assert "error" in response.json()
+        assert response.json()["error"] == "Invalid Twilio signature"
 
-    def test_missing_signature_header(self, api_gateway_url):
+    def test_missing_signature_header(self, api_gateway_url: str):
         """Test event notification fails without signature header"""
-        payload = {
-            "object": "whatsapp_business_account",
-            "entry": [{"id": "123"}]
+        params = {
+            'From': 'whatsapp:+15551234567',
+            'Body': 'test'
         }
+        content = urlencode(params)
 
         headers = {
-            "Content-Type": "application/json"
+            "Content-Type": "application/x-www-form-urlencoded"
         }
 
         response = httpx.post(
             api_gateway_url,
             headers=headers,
-            json=payload
+            content=content
         )
 
         assert response.status_code == 401
         assert "error" in response.json()
+        assert response.json()["error"] == "Missing X-Twilio-Signature header"
 
-    def test_missing_body(self, api_gateway_url, app_secret):
+    def test_missing_body(self, api_gateway_url: str, validator: RequestValidator):
         """Test event notification fails with missing body"""
-        signature = generate_signature("", app_secret)
+        url = api_gateway_url
+        params = {}  # No params, so empty body
+
+        # Signature is computed on the URL with an empty dictionary of params
+        signature = validator.compute_signature(url, params)
 
         headers = {
-            "Content-Type": "application/json",
-            "X-Hub-Signature-256": signature
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-Twilio-Signature": signature
         }
 
         response = httpx.post(
-            api_gateway_url,
-            headers=headers
+            url,
+            headers=headers,
+            content=""  # Empty body
         )
 
         assert response.status_code == 400
         assert "error" in response.json()
+        assert response.json()["error"] == "Missing request body"
 
-    def test_signature_with_different_payload(self, api_gateway_url, app_secret):
+    def test_signature_with_different_payload(self, api_gateway_url: str, validator: RequestValidator):
         """Test that signature validation detects payload tampering"""
-        original_payload = {"object": "whatsapp_business_account", "entry": [{"id": "123"}]}
-        tampered_payload = {"object": "whatsapp_business_account", "entry": [{"id": "999"}]}
+        url = api_gateway_url
+
+        original_params = {'Body': 'original', 'From': 'whatsapp:+123'}
+        tampered_params = {'Body': 'tampered', 'From': 'whatsapp:+123'}
 
         # Generate signature for original payload
-        signature = generate_signature(json.dumps(original_payload), app_secret)
+        signature = validator.compute_signature(url, original_params)
 
         # Send tampered payload with original signature
         headers = {
-            "Content-Type": "application/json",
-            "X-Hub-Signature-256": signature
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-Twilio-Signature": signature
         }
 
         response = httpx.post(
-            api_gateway_url,
+            url,
             headers=headers,
-            content=json.dumps(tampered_payload)
+            content=urlencode(tampered_params)
         )
 
         assert response.status_code == 403
         assert "error" in response.json()
+        assert response.json()["error"] == "Invalid Twilio signature"
