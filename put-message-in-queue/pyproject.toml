@@ -2,3 +2,14 @@
 name = "webhook_handler"
 version = "0.1.0"
 description = "A webhook handler for Twilio WhatsApp messages."
+dependencies = [
+    "boto3>=1.40.52",
+    "dotenv>=0.9.9",
+    "twilio>=9.8.4",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=8.4.2",
+]
