@@ -7,8 +7,8 @@ from pydantic import BaseModel
 class TwilioWebhookPayload(BaseModel):
     """Twilio WhatsApp webhook payload.
 
-    Twilio sends a flat structure with form-encoded data.
-    See: https://www.twilio.com/docs/messaging/guides/webhook-request
+    This model can be initialized from a standard Twilio webhook payload (a flat JSON object)
+    or from an AWS API Gateway event where the payload is in a URL-encoded 'body'.
     """
 
     # Message identifiers
@@ -86,7 +86,3 @@ class TwilioWebhookPayload(BaseModel):
         """Extract sender's phone number without whatsapp: prefix."""
         # Remove "whatsapp:" prefix if present
         return self.From.replace("whatsapp:", "")
-
-
-# Keep old name for backwards compatibility during migration
-WhatsAppWebhookPayload = TwilioWebhookPayload

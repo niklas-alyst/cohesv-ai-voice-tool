@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from dotenv import load_dotenv
 from unittest.mock import AsyncMock, patch, MagicMock
-from voice_parser.models import WhatsAppWebhookPayload
+from voice_parser.models import TwilioWebhookPayload
 from voice_parser.core.processor import process_message
 from voice_parser.services.storage import S3StorageService
 from voice_parser.core.settings import S3Settings
@@ -41,7 +41,7 @@ def text_payload():
     with open(payload_file, "r") as f:
         payload_data = json.load(f)
 
-    return WhatsAppWebhookPayload(**payload_data)
+    return TwilioWebhookPayload(**payload_data)
 
 
 @pytest.fixture
@@ -53,7 +53,7 @@ def audio_payload():
     with open(payload_file, "r") as f:
         payload_data = json.load(f)
 
-    return WhatsAppWebhookPayload(**payload_data)
+    return TwilioWebhookPayload(**payload_data)
 
 
 @pytest.fixture
@@ -159,7 +159,7 @@ class TestProcessorIntegration:
                 # Verify send_message was called
                 assert mock_whatsapp_instance.send_message.call_count == 1
                 call_args = mock_whatsapp_instance.send_message.call_args
-                assert "whatsapp:+14155552671" in call_args.kwargs["recipient_phone"]
+                assert "whatsapp:+15551234567" in call_args.kwargs["recipient_phone"]
                 assert "Structured text:" in call_args.kwargs["body"]
 
                 # Verify S3 files were created

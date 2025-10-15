@@ -12,7 +12,7 @@ This module contains the business logic for processing WhatsApp voice messages:
 import logging
 from typing import Any, Dict
 
-from voice_parser.models import WhatsAppWebhookPayload
+from voice_parser.models import TwilioWebhookPayload
 from voice_parser.services.twilio_whatsapp_client import TwilioWhatsAppClient
 from voice_parser.services.storage import S3StorageService
 from voice_parser.services.transcription import TranscriptionClient
@@ -21,7 +21,7 @@ from voice_parser.services.llm import LLMClient
 logger = logging.getLogger(__name__)
 
 
-async def process_message(payload: WhatsAppWebhookPayload) -> Dict[str, Any]:
+async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
     """
     Process a single WhatsApp message.
 
