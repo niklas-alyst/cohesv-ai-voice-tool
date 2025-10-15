@@ -8,11 +8,15 @@ is genuine, then forwards the event to an AWS SQS queue for processing.
 import os
 import json
 import boto3
+import logging
 from typing import Dict, Any
 from urllib.parse import parse_qs
 
 # Twilio's request validator
 from twilio.request_validator import RequestValidator
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 # Initialize SQS client
 sqs = boto3.client("sqs")
@@ -21,16 +25,22 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Handle webhook event notifications from Twilio.
     """
+    logger.info(f"Triggering handler with event: {event}")
     # Get configuration from environment
     twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
     queue_url = os.environ.get("SQS_QUEUE_URL")
 
     if not twilio_auth_token:
-        print("TWILIO_AUTH_TOKEN not configured, Returning 500")
-        return {"statusCode": 500, "body": json.dumps({"error": "TWILIO_AUTH_TOKEN not configured"})}
+        err_msg = "TWILIO_AUTH_TOKEN not configured"
+        status_code = 500 
+        logger.error(f"{err_msg}, returning {status_code}")
+        return {"statusCode": status_code, "body": json.dumps({"error": err_msg})}
+    
     if not queue_url:
-        print("SQS_QUEUE_URL not configured, Returning 500")
-        return {"statusCode": 500, "body": json.dumps({"error": "SQS_QUEUE_URL not configured"})}
+        err_msg = "SQS_QUEUE_URL not configured"
+        status_code = 500 
+        logger.error(f"{err_msg}, returning {status_code}")
+        return {"statusCode": status_code, "body": json.dumps({"error": err_msg})}
 
     # Initialize the validator with your Auth Token
     validator = RequestValidator(twilio_auth_token)
@@ -40,23 +50,45 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     signature = headers.get("X-Twilio-Signature") or headers.get("x-twilio-signature")
 
     if not signature:
-        return {"statusCode": 401, "body": json.dumps({"error": "Missing X-Twilio-Signature header"})}
+        err_msg = "Missing X-Twilio-Signature header"
+        status_code = 401
+        logger.error(f"{err_msg}, returning {status_code}")
+        return {"statusCode": status_code, "body": json.dumps({"error": err_msg})}
 
     # Construct the full URL that Twilio requested
     # API Gateway provides this information in the event object
     request_url = f"https://{event['requestContext']['domainName']}{event['requestContext']['path']}"
-    
+
+    # Include query string parameters if present
+    query_params = event.get("queryStringParameters")
+    if query_params:
+        query_string = "&".join([f"{k}={v}" for k, v in sorted(query_params.items())])
+        request_url = f"{request_url}?{query_string}"
+
     # Get the raw body and parse it
     raw_body = event.get("body", "")
     if not raw_body:
-        return {"statusCode": 400, "body": json.dumps({"error": "Missing request body"})}
+        err_msg = "Missing request body"
+        status_code = 400
+        logger.error(f"{err_msg}, returning {status_code}")
+        return {"statusCode": status_code, "body": json.dumps({"error": err_msg})}
 
     # The validator needs the POST parameters as a dictionary
-    post_params = {k: v[0] for k, v in parse_qs(raw_body).items()}
+    # IMPORTANT: keep_blank_values=True is required to preserve empty parameters like Body=
+    # Twilio includes empty parameters in signature calculation
+    post_params = {k: v[0] for k, v in parse_qs(raw_body, keep_blank_values=True).items()}
+
+    # Debug logging for signature validation
+    logger.info(f"Validating signature for URL: {request_url}")
+    logger.info(f"POST parameters: {post_params}")
+    logger.info(f"Signature: {signature}")
 
     # Validate the request
     if not validator.validate(request_url, post_params, signature):
-        return {"statusCode": 403, "body": json.dumps({"error": "Invalid Twilio signature"})}
+        err_msg = "Invalid Twilio signature"
+        status_code = 403
+        logger.error(f"{err_msg}, returning {status_code}")
+        return {"statusCode": status_code, "body": json.dumps({"error": err_msg})}
 
     # At this point, the request is verified.
     # The post_params dictionary contains the message data.
@@ -64,10 +96,12 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     try:
         # Send the verified Twilio payload to SQS for processing
+        message_body = json.dumps(post_params)
+        logger.info(f"Sending message {message_body} to SQS")
         sqs.send_message(
             QueueUrl=queue_url,
             # We send the dictionary as a JSON string for easy processing later
-            MessageBody=json.dumps(post_params), 
+            MessageBody=message_body, 
             MessageAttributes={
                 "Source": {
                     "StringValue": "TwilioWhatsAppWebhook",
@@ -76,8 +110,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
         )
     except Exception as e:
-        print(f"Error sending message to SQS: {str(e)}")
+        logger.error(f"Error sending message to SQS: {str(e)}")
         return {"statusCode": 500, "body": json.dumps({"error": "Failed to process webhook"})}
 
     # Return 200 OK to Twilio
+    logger.info(f"Lambda finished successfully, returning 200")
     return {"statusCode": 200, "body": json.dumps({"status": "received"})}
