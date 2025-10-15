@@ -50,7 +50,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return {"statusCode": status_code, "body": json.dumps({"error": err_msg})}
 
     # Parse into list 
-    authorized_numbers = authorized_numbers_str.str.split(";")
+    authorized_numbers = [num.replace(" ", "") for num in authorized_numbers_str.str.split(";")]
     logger.info(f"Parsed {len(authorized_numbers)}")
 
     # Initialize the validator with your Auth Token
