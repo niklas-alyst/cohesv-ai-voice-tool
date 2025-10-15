@@ -3,26 +3,19 @@ name = "voice-parser"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-authors = [
-    { name = "Niklas", email = "niklas@alyst.se" }
-]
 requires-python = ">=3.13"
 dependencies = [
-    "boto3>=1.34.0",
-    "httpx>=0.25.0",
-    "pydantic-settings>=2.0.0",
-    "openai>=1.108.1",
+    "boto3>=1.40.52",
+    "httpx>=0.28.1",
+    "openai>=2.3.0",
+    "pydantic-settings>=2.11.0",
     "twilio>=9.8.4",
 ]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
     "python-dotenv>=1.1.1",
-    "ruff>=0.13.1",
+    "ruff>=0.14.0",
 ]

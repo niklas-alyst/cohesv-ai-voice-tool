@@ -658,12 +658,12 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "boto3" },
-    { name = "dotenv" },
     { name = "twilio" },
 ]
 
 [package.dev-dependencies]
 dev = [
+    { name = "dotenv" },
     { name = "httpx" },
     { name = "pytest" },
 ]
@@ -671,12 +671,12 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "boto3", specifier = ">=1.40.52" },
-    { name = "dotenv", specifier = ">=0.9.9" },
     { name = "twilio", specifier = ">=9.8.4" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "dotenv", specifier = ">=0.9.9" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pytest", specifier = ">=8.4.2" },
 ]
