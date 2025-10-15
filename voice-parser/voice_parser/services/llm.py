@@ -20,7 +20,7 @@ For example, this could be
 - put this date into the calendar
 - check with builders or clients when they're ready
 
-Please extract summary, the job this is about, and ALL action items mentioned.
+Please extract summary, the job this is about, the context for the action items, and ALL action items mentioned.
 
 IMPORTANT: it's better to capture too many action items than to not capture enough
 """
@@ -31,6 +31,9 @@ class VoiceNoteAnalysis(BaseModel):
     )
     job: str = Field(
         description="The specific job this is related to"
+    )
+    context: str = Field(
+        description="The background to why these action items should be done."
     )
     action_items: List[str] = Field(
         description="Specific tasks, next steps, and items to be added to be registered."

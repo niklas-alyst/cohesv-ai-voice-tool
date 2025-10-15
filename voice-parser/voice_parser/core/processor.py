@@ -93,6 +93,12 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
     formatted_text = f"""*Summary:*
 {structured_analysis.summary}
 
+*Job:*
+{structured_analysis.job}
+
+*Context:*
+{structured_analysis.context}
+
 *Action Items:*
 {chr(10).join(f'• {item}' for item in structured_analysis.action_items)}
 """
