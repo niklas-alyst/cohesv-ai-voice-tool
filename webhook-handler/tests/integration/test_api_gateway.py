@@ -31,6 +31,13 @@ def twilio_auth_token():
         pytest.skip("TWILIO_AUTH_TOKEN not configured in .env.test")
     return token
 
+@pytest.fixture
+def sender_number():
+    """Get Twilio auth token from environment"""
+    token = os.getenv("SENDER_NUMBER")
+    if not token:
+        pytest.skip("SENDER_NUMBER not configured in .env.test")
+    return token
 
 @pytest.fixture
 def validator(twilio_auth_token: str) -> RequestValidator:
@@ -41,7 +48,7 @@ def validator(twilio_auth_token: str) -> RequestValidator:
 class TestTwilioWebhookHandler:
     """Integration tests for Twilio webhook handler (POST)"""
 
-    def test_successful_event_notification(self, api_gateway_url: str, validator: RequestValidator):
+    def test_successful_event_notification(self, api_gateway_url: str, sender_number: str, validator: RequestValidator):
         """Test successful processing of a valid Twilio notification"""
         # The URL that Twilio would have requested
         url = api_gateway_url
@@ -57,7 +64,7 @@ class TestTwilioWebhookHandler:
             'NumSegments': '1',
             'MessageSid': 'SMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
             'AccountSid': 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-            'From': 'whatsapp:+15551234567',
+            'From': sender_number,
             'ApiVersion': '2010-04-01',
         }
 
@@ -78,13 +85,53 @@ class TestTwilioWebhookHandler:
             content=content
         )
 
-        assert response.status_code == 200
+        assert response.status_code == 200, f"Got message {response.text}"
         assert response.json().get("status") == "received"
 
-    def test_invalid_signature(self, api_gateway_url: str):
+    def test_invalid_number(self, api_gateway_url: str, validator: RequestValidator):
+        """Test successful processing of a valid Twilio notification"""
+        # The URL that Twilio would have requested
+        url = api_gateway_url
+
+        # The POST parameters
+        params = {
+            'SmsMessageSid': 'SMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+            'NumMedia': '0',
+            'SmsSid': 'SMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+            'SmsStatus': 'received',
+            'Body': 'Hello',
+            'To': 'whatsapp:+14155238886',
+            'NumSegments': '1',
+            'MessageSid': 'SMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+            'AccountSid': 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+            'From': "whatsapp:+14155238912",
+            'ApiVersion': '2010-04-01',
+        }
+
+        # Generate a valid signature
+        signature = validator.compute_signature(url, params)
+
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-Twilio-Signature": signature
+        }
+
+        # The body should be a URL-encoded string
+        content = urlencode(params)
+
+        response = httpx.post(
+            url,
+            headers=headers,
+            content=content
+        )
+
+        assert response.status_code == 401, f"Got message {response.text}"
+
+
+    def test_invalid_signature(self, api_gateway_url: str, sender_number: str):
         """Test event notification fails with invalid signature"""
         params = {
-            'From': 'whatsapp:+15551234567',
+            'From': sender_number,
             'Body': 'test'
         }
         content = urlencode(params)
@@ -100,14 +147,14 @@ class TestTwilioWebhookHandler:
             content=content
         )
 
-        assert response.status_code == 403
+        assert response.status_code == 403, f"Got message {response.text}"
         assert "error" in response.json()
         assert response.json()["error"] == "Invalid Twilio signature"
 
-    def test_missing_signature_header(self, api_gateway_url: str):
+    def test_missing_signature_header(self, api_gateway_url: str, sender_number: str):
         """Test event notification fails without signature header"""
         params = {
-            'From': 'whatsapp:+15551234567',
+            'From': sender_number,
             'Body': 'test'
         }
         content = urlencode(params)
@@ -122,7 +169,7 @@ class TestTwilioWebhookHandler:
             content=content
         )
 
-        assert response.status_code == 401
+        assert response.status_code == 401, f"Got message {response.text}"
         assert "error" in response.json()
         assert response.json()["error"] == "Missing X-Twilio-Signature header"
 
@@ -149,12 +196,12 @@ class TestTwilioWebhookHandler:
         assert "error" in response.json()
         assert response.json()["error"] == "Missing request body"
 
-    def test_signature_with_different_payload(self, api_gateway_url: str, validator: RequestValidator):
+    def test_signature_with_different_payload(self, api_gateway_url: str, sender_number: str, validator: RequestValidator):
         """Test that signature validation detects payload tampering"""
         url = api_gateway_url
 
-        original_params = {'Body': 'original', 'From': 'whatsapp:+123'}
-        tampered_params = {'Body': 'tampered', 'From': 'whatsapp:+123'}
+        original_params = {'Body': 'original', 'From': sender_number}
+        tampered_params = {'Body': 'tampered', 'From': sender_number}
 
         # Generate signature for original payload
         signature = validator.compute_signature(url, original_params)
