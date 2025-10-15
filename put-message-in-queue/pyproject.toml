@@ -1,0 +1,4 @@
+[project]
+name = "webhook_handler"
+version = "0.1.0"
+description = "A webhook handler for Twilio WhatsApp messages."
