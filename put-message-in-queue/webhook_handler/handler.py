@@ -26,8 +26,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     queue_url = os.environ.get("SQS_QUEUE_URL")
 
     if not twilio_auth_token:
+        print("TWILIO_AUTH_TOKEN not configured, Returning 500")
         return {"statusCode": 500, "body": json.dumps({"error": "TWILIO_AUTH_TOKEN not configured"})}
     if not queue_url:
+        print("SQS_QUEUE_URL not configured, Returning 500")
         return {"statusCode": 500, "body": json.dumps({"error": "SQS_QUEUE_URL not configured"})}
 
     # Initialize the validator with your Auth Token
