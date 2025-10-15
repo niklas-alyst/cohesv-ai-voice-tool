@@ -1,126 +1,81 @@
 """
-AWS Lambda function for handling Meta WhatsApp webhook event notifications.
+AWS Lambda function for handling Twilio's WhatsApp webhook event notifications.
 
-This function validates the X-Hub-Signature-256 header to ensure the payload
+This function validates the X-Twilio-Signature header using the Twilio Auth Token to ensure the payload
 is genuine, then forwards the event to an AWS SQS queue for processing.
 """
 
 import os
 import json
-import hmac
-import hashlib
 import boto3
 from typing import Dict, Any
+from urllib.parse import parse_qs
 
+# Twilio's request validator
+from twilio.request_validator import RequestValidator
 
 # Initialize SQS client
 sqs = boto3.client("sqs")
 
-
-def verify_signature(payload: str, signature: str, app_secret: str) -> bool:
-    """
-    Verify the X-Hub-Signature-256 header using HMAC SHA256.
-
-    Args:
-        payload: The raw request body as a string
-        signature: The signature from X-Hub-Signature-256 header (including 'sha256=' prefix)
-        app_secret: The app secret used to generate the signature
-
-    Returns:
-        bool: True if signature is valid, False otherwise
-    """
-    if not signature.startswith("sha256="):
-        return False
-
-    # Extract the signature hash (remove 'sha256=' prefix)
-    expected_signature = signature[7:]
-
-    # Generate signature using payload and app secret
-    generated_signature = hmac.new(
-        app_secret.encode("utf-8"),
-        payload.encode("utf-8"),
-        hashlib.sha256
-    ).hexdigest()
-
-    # Compare signatures using constant-time comparison
-    return hmac.compare_digest(generated_signature, expected_signature)
-
-
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
-    Handle webhook event notifications from Meta.
-
-    Args:
-        event: API Gateway event containing headers and body
-        context: Lambda context object
-
-    Returns:
-        dict: API Gateway response with status code and body
+    Handle webhook event notifications from Twilio.
     """
     # Get configuration from environment
-    app_secret = os.environ.get("WHATSAPP_APP_SECRET")
+    twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
     queue_url = os.environ.get("SQS_QUEUE_URL")
 
-    if not app_secret:
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": "WHATSAPP_APP_SECRET not configured"})
-        }
-
+    if not twilio_auth_token:
+        return {"statusCode": 500, "body": json.dumps({"error": "TWILIO_AUTH_TOKEN not configured"})}
     if not queue_url:
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": "SQS_QUEUE_URL not configured"})
-        }
+        return {"statusCode": 500, "body": json.dumps({"error": "SQS_QUEUE_URL not configured"})}
 
-    # Get the signature from headers
+    # Initialize the validator with your Auth Token
+    validator = RequestValidator(twilio_auth_token)
+
+    # Get the signature from headers (case-insensitive)
     headers = event.get("headers", {})
-    signature = headers.get("X-Hub-Signature-256") or headers.get("x-hub-signature-256")
+    signature = headers.get("X-Twilio-Signature") or headers.get("x-twilio-signature")
 
     if not signature:
-        return {
-            "statusCode": 401,
-            "body": json.dumps({"error": "Missing X-Hub-Signature-256 header"})
-        }
+        return {"statusCode": 401, "body": json.dumps({"error": "Missing X-Twilio-Signature header"})}
 
-    # Get the raw body
-    body = event.get("body", "")
+    # Construct the full URL that Twilio requested
+    # API Gateway provides this information in the event object
+    request_url = f"https://{event['requestContext']['domainName']}{event['requestContext']['path']}"
+    
+    # Get the raw body and parse it
+    raw_body = event.get("body", "")
+    if not raw_body:
+        return {"statusCode": 400, "body": json.dumps({"error": "Missing request body"})}
 
-    if not body:
-        return {
-            "statusCode": 400,
-            "body": json.dumps({"error": "Missing request body"})
-        }
+    # The validator needs the POST parameters as a dictionary
+    post_params = {k: v[0] for k, v in parse_qs(raw_body).items()}
 
-    # Verify the signature
-    if not verify_signature(body, signature, app_secret):
-        return {
-            "statusCode": 403,
-            "body": json.dumps({"error": "Invalid signature"})
-        }
+    # Validate the request
+    if not validator.validate(request_url, post_params, signature):
+        return {"statusCode": 403, "body": json.dumps({"error": "Invalid Twilio signature"})}
 
-    # Send message to SQS queue
+    # At this point, the request is verified.
+    # The post_params dictionary contains the message data.
+    # Example: {'From': 'whatsapp:+1...', 'Body': 'Hello', 'SmsMessageSid': 'SM...'}
+    
     try:
+        # Send the verified Twilio payload to SQS for processing
         sqs.send_message(
             QueueUrl=queue_url,
-            MessageBody=body,
+            # We send the dictionary as a JSON string for easy processing later
+            MessageBody=json.dumps(post_params), 
             MessageAttributes={
                 "Source": {
-                    "StringValue": "WhatsAppWebhook",
+                    "StringValue": "TwilioWhatsAppWebhook",
                     "DataType": "String"
                 }
             }
         )
     except Exception as e:
-        # Log error but don't expose details to caller
         print(f"Error sending message to SQS: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": "Failed to process webhook"})
-        }
+        return {"statusCode": 500, "body": json.dumps({"error": "Failed to process webhook"})}
 
-    # Return 200 OK as required by Meta
-    return {
-        "statusCode": 200,
-        "body": json.dumps({"status": "received"})
-    }
+    # Return 200 OK to Twilio
+    return {"statusCode": 200, "body": json.dumps({"status": "received"})}
