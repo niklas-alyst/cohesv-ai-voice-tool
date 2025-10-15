@@ -1,12 +1,18 @@
 {
-  "MessageSid": "SM1234567890abcdef1234567890abcdef",
-  "AccountSid": "AC1234567890abcdef1234567890abcdef",
-  "From": "whatsapp:+14155552672",
-  "To": "whatsapp:+15551234567",
-  "Body": "Hello, this is a test message!",
+  "SmsMessageSid": "SM1234567890abcdef1234567890abcdef",
   "NumMedia": "0",
   "ProfileName": "Jane Smith",
+  "MessageType": "text",
+  "SmsSid": "SM1234567890abcdef1234567890abcdef",
   "WaId": "14155552672",
   "SmsStatus": "received",
+  "Body": "Hello, this is a test message!",
+  "To": "whatsapp:+15551234567",
+  "NumSegments": "1",
+  "ReferralNumMedia": "0",
+  "MessageSid": "SM1234567890abcdef1234567890abcdef",
+  "AccountSid": "AC1234567890abcdef1234567890abcdef",
+  "ChannelMetadata": "{\"type\":\"whatsapp\",\"data\":{\"context\":{\"ProfileName\":\"Jane Smith\",\"WaId\":\"14155552672\"}}}",
+  "From": "whatsapp:+14155552672",
   "ApiVersion": "2010-04-01"
 }

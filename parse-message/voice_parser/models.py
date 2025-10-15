@@ -13,16 +13,19 @@ class TwilioWebhookPayload(BaseModel):
 
     # Message identifiers
     MessageSid: str
+    SmsSid: Optional[str] = None
+    SmsMessageSid: Optional[str] = None
     AccountSid: str
 
     # Sender information
     From: str  # Format: "whatsapp:+14155552671"
-    To: str    # Format: "whatsapp:+14155238886"
+    To: str    # Format: "whatsapp:+15551238886"
     ProfileName: Optional[str] = None
     WaId: Optional[str] = None  # WhatsApp ID without prefix
 
     # Message content
     Body: Optional[str] = None
+    MessageType: Optional[str] = None
 
     # Media information
     NumMedia: str = "0"  # String number of media attachments
@@ -34,6 +37,9 @@ class TwilioWebhookPayload(BaseModel):
     # Status and metadata
     SmsStatus: Optional[str] = None
     ApiVersion: Optional[str] = None
+    NumSegments: Optional[str] = None
+    ReferralNumMedia: Optional[str] = None
+    ChannelMetadata: Optional[str] = None
 
     class Config:
         # Allow extra fields that Twilio might send
@@ -41,6 +47,15 @@ class TwilioWebhookPayload(BaseModel):
 
     def get_message_type(self) -> Literal["text", "audio", "image", "video", "document", "unknown"]:
         """Determine message type based on media content type."""
+        if self.MessageType:
+            # Map Twilio's MessageType to our internal types
+            msg_type = self.MessageType.lower()
+            if msg_type in ["text", "audio", "image", "video", "document"]:
+                return msg_type
+            if msg_type == "file":  # Twilio might use 'file'
+                return "document"
+
+        # Fallback for older webhook formats
         if int(self.NumMedia) == 0:
             return "text"
 
