@@ -103,8 +103,8 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
 
 *Sentiment:* {structured_analysis.sentiment}"""
 
-    # Save to database 
-    await s3_service.upload_text(formatted_text, filename=f"{s3_key}_summary.txt")
+    # Save to database
+    await s3_service.upload_text(formatted_text, filename=f"{message_id}.ogg_summary.txt")
     
     # Send structured analysis back to user
     logger.info(f"Sending structured analysis to {message_phonenumber}")

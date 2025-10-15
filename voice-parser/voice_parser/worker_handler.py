@@ -13,7 +13,7 @@ import json
 import logging
 from typing import Any, Dict
 
-from voice_parser.models import WhatsAppWebhookPayload
+from voice_parser.models import TwilioWebhookPayload
 from voice_parser.core.processor import process_message
 
 # Configure logging
@@ -47,7 +47,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             payload_dict = json.loads(body)
 
             # Validate and parse WhatsApp payload
-            payload = WhatsAppWebhookPayload.model_validate(payload_dict)
+            payload = TwilioWebhookPayload.model_validate(payload_dict)
 
             # Process the message
             result = asyncio.run(process_message(payload))

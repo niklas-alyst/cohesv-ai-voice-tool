@@ -1,7 +1,7 @@
 """Pydantic models for Twilio WhatsApp webhook payloads."""
 
 from typing import Optional, Literal
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class TwilioWebhookPayload(BaseModel):
@@ -41,9 +41,7 @@ class TwilioWebhookPayload(BaseModel):
     ReferralNumMedia: Optional[str] = None
     ChannelMetadata: Optional[str] = None
 
-    class Config:
-        # Allow extra fields that Twilio might send
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
     def get_message_type(self) -> Literal["text", "audio", "image", "video", "document", "unknown"]:
         """Determine message type based on media content type."""
