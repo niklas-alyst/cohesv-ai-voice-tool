@@ -104,7 +104,7 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
     logger.info(f"Sending structured analysis to {message_phonenumber}")
     await whatsapp_client.send_message(
         recipient_phone=message_phonenumber,
-        body=f"Structured text: {formatted_text}"
+        body=f"Here's the parsed action items sent to the Admin team: {formatted_text}"
     )
 
     logger.info(f"Processing complete for {message_id}")
