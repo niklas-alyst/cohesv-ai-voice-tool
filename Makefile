@@ -20,7 +20,7 @@ deploy: deploy-voice-parser deploy-webhook-handler
 
 # --- Voice Parser ---
 build-voice-parser:
-	docker build --file parse-message/Dockerfile -t $(VOICE_PARSER_IMG):$(TAG) .
+	docker build --file voice-parser/Dockerfile -t $(VOICE_PARSER_IMG):$(TAG) .
 	docker tag $(VOICE_PARSER_IMG):$(TAG) $(VOICE_PARSER_REPO):$(TAG)
 
 deploy-voice-parser: build-voice-parser
@@ -29,7 +29,7 @@ deploy-voice-parser: build-voice-parser
 
 # --- Webhook Handler ---
 build-webhook-handler:
-	docker build --file put-message-in-queue/Dockerfile -t $(WEBHOOK_HANDLER_IMG):$(TAG) .
+	docker build --file webhook-handler/Dockerfile -t $(WEBHOOK_HANDLER_IMG):$(TAG) .
 	docker tag $(WEBHOOK_HANDLER_IMG):$(TAG) $(WEBHOOK_HANDLER_REPO):$(TAG)
 
 deploy-webhook-handler: build-webhook-handler
