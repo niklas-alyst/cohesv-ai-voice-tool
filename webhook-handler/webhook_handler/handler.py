@@ -28,7 +28,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     logger.info(f"Triggering handler with event: {event}")
     # Get configuration from environment
     twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
-    queue_url = os.environ.get("SQS_QUEUE_URL")
+    sqs_queue_url = os.environ.get("SQS_QUEUE_URL")
 
     if not twilio_auth_token:
         err_msg = "TWILIO_AUTH_TOKEN not configured"
@@ -36,11 +36,22 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.error(f"{err_msg}, returning {status_code}")
         return {"statusCode": status_code, "body": json.dumps({"error": err_msg})}
     
-    if not queue_url:
+    if not sqs_queue_url:
         err_msg = "SQS_QUEUE_URL not configured"
         status_code = 500 
         logger.error(f"{err_msg}, returning {status_code}")
         return {"statusCode": status_code, "body": json.dumps({"error": err_msg})}
+
+    authorized_numbers_str = os.getenv("AUTHORIZED_NUMBERS")
+    if not authorized_numbers_str:
+        err_msg = "ALLOWED_NUMBERS not configured"
+        status_code = 500 
+        logger.error(f"{err_msg}, returning {status_code}")
+        return {"statusCode": status_code, "body": json.dumps({"error": err_msg})}
+
+    # Parse into list 
+    authorized_numbers = authorized_numbers_str.str.split(";")
+    logger.info(f"Parsed {len(authorized_numbers)}")
 
     # Initialize the validator with your Auth Token
     validator = RequestValidator(twilio_auth_token)
@@ -83,6 +94,16 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     logger.info(f"POST parameters: {post_params}")
     logger.info(f"Signature: {signature}")
 
+    from_number = post_params["From"]
+    if from_number.startswith("whatsapp:"):
+        from_number = from_number.replace("whatsapp:", "")
+        if from_number not in authorized_numbers:
+            err_msg = f"Sender not authorized: {from_number}"
+            status_code = 401
+            logger.error(f"{err_msg}, returning {status_code}")
+            return {"statusCode": status_code, "body": json.dumps({"error": err_msg})}
+
+
     # Validate the request
     if not validator.validate(request_url, post_params, signature):
         err_msg = "Invalid Twilio signature"
@@ -99,7 +120,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         message_body = json.dumps(post_params)
         logger.info(f"Sending message {message_body} to SQS")
         sqs.send_message(
-            QueueUrl=queue_url,
+            QueueUrl=sqs_queue_url,
             # We send the dictionary as a JSON string for easy processing later
             MessageBody=message_body, 
             MessageAttributes={
