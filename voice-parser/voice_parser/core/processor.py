@@ -40,8 +40,7 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
     # Get message's phone number
     message_phonenumber = payload.get_phone_number()
     if not message_phonenumber:
-        logger.error("Could not extract sender phone number")
-        return {"status": "error", "reason": "missing sender phone number"}
+        raise ValueError("Could not extract sender phone number")
 
     logger.info(f"Received message from {message_phonenumber}")
 
@@ -59,8 +58,7 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
     # Extract media URL
     media_url = payload.get_media_url()
     if not media_url:
-        logger.error("Audio message missing media URL")
-        return {"status": "error", "reason": "missing media URL"}
+        raise ValueError("Audio message missing media URL")
 
     # Use MessageSid as unique identifier for files
     message_id = payload.MessageSid
