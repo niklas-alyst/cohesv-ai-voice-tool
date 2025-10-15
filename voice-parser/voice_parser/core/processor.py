@@ -93,13 +93,9 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
     formatted_text = f"""*Summary:*
 {structured_analysis.summary}
 
-*Topics:*
-{chr(10).join(f'• {topic}' for topic in structured_analysis.topics)}
-
 *Action Items:*
 {chr(10).join(f'• {item}' for item in structured_analysis.action_items)}
-
-*Sentiment:* {structured_analysis.sentiment}"""
+"""
 
     # Save to database
     await s3_service.upload_text(formatted_text, filename=f"{message_id}.ogg_summary.txt")

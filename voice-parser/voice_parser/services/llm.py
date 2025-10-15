@@ -4,18 +4,36 @@ from pydantic import BaseModel, Field
 from voice_parser.core.settings import OpenAISettings
 
 
+SYSTEM_MESSAGE = """
+You are assisting workers of a plumbing business to extract structured information from voice notes.
+
+While on-site, these workers may get information about a new job, understand tasks they need to do etc., or similar.
+The business has a job and project management software for managing all of this information
+but it's difficult to remember all of it and the workers don't have access to the computer while on site.
+
+This is where you come in. The workers will send a voice note to you, the text from this will be transcribed, and
+you should extract all the relevant information from the transcription. 
+so that it's easy for an assistant to enter it into the software.
+
+For example, this could be
+- remember to purchase material for a given job 
+- put this date into the calendar
+- check with builders or clients when they're ready
+
+Please extract summary, the job this is about, and ALL action items mentioned.
+
+IMPORTANT: it's better to capture too many action items than to not capture enough
+"""
+
 class VoiceNoteAnalysis(BaseModel):
     summary: str = Field(
-        description="A concise summary of the main points discussed in the voice note"
+        description="A concise summary of the main point in the note"
     )
-    topics: List[str] = Field(
-        description="List of key topics, themes, or subjects mentioned in the voice note"
+    job: str = Field(
+        description="The specific job this is related to"
     )
     action_items: List[str] = Field(
-        description="Specific tasks, next steps, or actionable items mentioned in the voice note"
-    )
-    sentiment: Literal["positive", "neutral", "negative"] = Field(
-        description="Overall emotional tone and sentiment of the voice note"
+        description="Specific tasks, next steps, and items to be added to be registered."
     )
 
 
@@ -27,11 +45,11 @@ class LLMClient:
 
     async def structure_text(self, transcribed_text: str) -> VoiceNoteAnalysis:
         completion = await self.client.chat.completions.parse(
-            model="gpt-4o-2024-08-06",
+            model="gpt-5-nano-2025-08-07",
             messages=[
                 {
                     "role": "system",
-                    "content": "You are an assistant that analyzes voice note transcriptions and extracts structured information. Extract summary, topics, action items, and sentiment from the text."
+                    "content": SYSTEM_MESSAGE
                 },
                 {
                     "role": "user",
