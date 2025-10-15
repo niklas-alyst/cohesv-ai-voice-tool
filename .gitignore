@@ -1,3 +1,4 @@
 .secrets
 .vscode
 .claude
+*.code-workspace
