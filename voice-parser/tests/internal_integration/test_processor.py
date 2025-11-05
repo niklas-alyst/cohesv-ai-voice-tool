@@ -94,8 +94,8 @@ class TestProcessorIntegration:
             sentiment="neutral"
         )
 
-        # Mock CustomerLookupService
-        with patch('voice_parser.core.processor.CustomerLookupService') as mock_customer_class:
+        # Mock CustomerLookupClient
+        with patch('voice_parser.core.processor.CustomerLookupClient') as mock_customer_class:
             mock_customer_instance = MagicMock()
             mock_customer_instance.fetch_customer_metadata = AsyncMock(return_value=mock_customer_metadata)
             mock_customer_class.return_value = mock_customer_instance
@@ -136,7 +136,7 @@ class TestProcessorIntegration:
                         assert result["metadata"]["tag"] == "test-job-summary"
                         assert result["analysis"] == mock_analysis.model_dump()
 
-                        # Verify CustomerLookupService was called
+                        # Verify CustomerLookupClient was called
                         mock_customer_instance.fetch_customer_metadata.assert_called_once()
 
                         # Verify send_message was called TWICE (confirmation + response)
@@ -180,8 +180,8 @@ class TestProcessorIntegration:
             sentiment="neutral"
         )
 
-        # Mock CustomerLookupService
-        with patch('voice_parser.core.processor.CustomerLookupService') as mock_customer_class:
+        # Mock CustomerLookupClient
+        with patch('voice_parser.core.processor.CustomerLookupClient') as mock_customer_class:
             mock_customer_instance = MagicMock()
             mock_customer_instance.fetch_customer_metadata = AsyncMock(return_value=mock_customer_metadata)
             mock_customer_class.return_value = mock_customer_instance
@@ -234,7 +234,7 @@ class TestProcessorIntegration:
                             assert result["metadata"]["tag"] == "test-job-summary"
                             assert result["analysis"] == mock_analysis.model_dump()
 
-                            # Verify CustomerLookupService was called
+                            # Verify CustomerLookupClient was called
                             mock_customer_instance.fetch_customer_metadata.assert_called_once()
 
                             # Verify TwilioWhatsAppClient.download_media was called with media_url
@@ -287,8 +287,8 @@ class TestProcessorIntegration:
             sentiment="positive"
         )
 
-        # Mock CustomerLookupService
-        with patch('voice_parser.core.processor.CustomerLookupService') as mock_customer_class:
+        # Mock CustomerLookupClient
+        with patch('voice_parser.core.processor.CustomerLookupClient') as mock_customer_class:
             mock_customer_instance = MagicMock()
             mock_customer_instance.fetch_customer_metadata = AsyncMock(return_value=mock_customer_metadata)
             mock_customer_class.return_value = mock_customer_instance

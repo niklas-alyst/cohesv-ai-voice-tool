@@ -10,7 +10,7 @@ from ai_voice_shared.models import CustomerMetadata
 logger = logging.getLogger(__name__)
 
 
-class CustomerLookupService:
+class CustomerLookupClient:
     """Service for looking up customer metadata by phone number."""
 
     def __init__(self, settings: Optional[CustomerLookupSettings] = None):

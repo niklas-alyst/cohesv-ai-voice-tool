@@ -17,7 +17,7 @@ from voice_parser.services.twilio_whatsapp_client import TwilioWhatsAppClient
 from voice_parser.services.storage import S3StorageService
 from voice_parser.services.transcription import TranscriptionClient
 from voice_parser.services.llm import LLMClient, MessageIntent
-from ai_voice_shared import CustomerLookupService
+from ai_voice_shared import CustomerLookupClient
 
 
 
@@ -46,8 +46,8 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
         raise ValueError("Could not extract sender phone number")
     
 
-    customer_lookup_service = CustomerLookupService()
-    customer_metadata = await customer_lookup_service.fetch_customer_metadata(message_phonenumber)
+    customer_lookup_client = CustomerLookupClient()
+    customer_metadata = await customer_lookup_client.fetch_customer_metadata(message_phonenumber)
     company_name = customer_metadata.company_name
 
     message_type = payload.get_message_type()

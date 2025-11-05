@@ -17,7 +17,7 @@ from urllib.parse import parse_qs
 from twilio.request_validator import RequestValidator
 
 # Customer lookup service and models from shared library
-from ai_voice_shared import CustomerLookupService, TwilioWebhookPayload
+from ai_voice_shared import CustomerLookupClient, TwilioWebhookPayload
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -48,7 +48,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     # Initialize customer lookup service for phone number authorization
     try:
-        customer_lookup_service = CustomerLookupService()
+        customer_lookup_client = CustomerLookupClient()
     except Exception as e:
         err_msg = f"Failed to initialize customer lookup service: {str(e)}"
         status_code = 500
@@ -106,7 +106,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     try:
         # Attempt to fetch customer metadata (this validates authorization)
-        customer_metadata = asyncio.run(customer_lookup_service.fetch_customer_metadata(from_number))
+        customer_metadata = asyncio.run(customer_lookup_client.fetch_customer_metadata(from_number))
         logger.info(f"Phone number {from_number} authorized for customer: {customer_metadata.customer_id}, company: {customer_metadata.company_name}")
     except Exception as e:
         # If lookup fails (404, validation error, etc.), phone number is not authorized

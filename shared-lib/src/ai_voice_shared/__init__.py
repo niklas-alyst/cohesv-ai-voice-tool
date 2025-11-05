@@ -2,11 +2,11 @@
 
 from ai_voice_shared.models import CustomerMetadata, TwilioWebhookPayload
 from ai_voice_shared.settings import CustomerLookupSettings
-from ai_voice_shared.services.customer_lookup import CustomerLookupService
+from ai_voice_shared.services.customer_lookup_client import CustomerLookupClient
 
 __all__ = [
     "CustomerMetadata",
     "TwilioWebhookPayload",
     "CustomerLookupSettings",
-    "CustomerLookupService",
+    "CustomerLookupClient",
 ]
