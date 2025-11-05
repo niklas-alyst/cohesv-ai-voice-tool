@@ -48,7 +48,7 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
 
     customer_lookup_client = CustomerLookupClient()
     customer_metadata = await customer_lookup_client.fetch_customer_metadata(message_phonenumber)
-    company_name = customer_metadata.company_name
+    company_id = customer_metadata.company_id
 
     message_type = payload.get_message_type()
     logger.info(f"Received message of type {message_type} from {message_phonenumber}")
@@ -107,7 +107,7 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
         structured_analysis = None
 
     # Upload artifacts to S3
-    key_prefix = f"{company_name}/{message_metadata.intent}/{message_metadata.tag}_{message_id}"
+    key_prefix = f"{company_id}/{message_metadata.intent}/{message_metadata.tag}_{message_id}"
 
     s3_keys = {}
     if message_type == "audio":
