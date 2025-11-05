@@ -2,6 +2,7 @@ from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 from typing import Optional
 
+
 class OpenAISettings(BaseSettings):
     model_config = ConfigDict(env_file=".env", extra="ignore")
     openai_api_key: str

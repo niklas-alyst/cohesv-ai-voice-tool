@@ -12,11 +12,14 @@ This module contains the business logic for processing WhatsApp voice messages:
 import logging
 from typing import Any, Dict
 
-from voice_parser.models import TwilioWebhookPayload
+from ai_voice_shared import TwilioWebhookPayload
 from voice_parser.services.twilio_whatsapp_client import TwilioWhatsAppClient
 from voice_parser.services.storage import S3StorageService
 from voice_parser.services.transcription import TranscriptionClient
-from voice_parser.services.llm import LLMClient
+from voice_parser.services.llm import LLMClient, MessageIntent
+from ai_voice_shared import CustomerLookupService
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -41,90 +44,118 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
     message_phonenumber = payload.get_phone_number()
     if not message_phonenumber:
         raise ValueError("Could not extract sender phone number")
+    
 
-    logger.info(f"Received message from {message_phonenumber}")
+    customer_lookup_service = CustomerLookupService()
+    customer_metadata = await customer_lookup_service.fetch_customer_metadata(message_phonenumber)
+    company_name = customer_metadata.company_name
 
-    # Check if it's an audio message
     message_type = payload.get_message_type()
-    if message_type != "audio":
-        logger.info(f"Ignoring non-audio message type: {message_type}")
-        # Send response to user
-        await whatsapp_client.send_message(
-            recipient_phone=message_phonenumber,
-            body="Text messages are not supported, please send audio"
-        )
-        return {"status": "ignored", "reason": f"not an audio message (type: {message_type})"}
+    logger.info(f"Received message of type {message_type} from {message_phonenumber}")
 
-    # Extract media URL
-    media_url = payload.get_media_url()
-    if not media_url:
-        raise ValueError("Audio message missing media URL")
-
-    # Use MessageSid as unique identifier for files
-    message_id = payload.MessageSid
-    logger.info(f"Processing audio message: {message_id}")
+    # Send confirmation back to client
+    await whatsapp_client.send_message(
+        recipient_phone=message_phonenumber,
+        body="Message received, processing..."
+    )
 
     # Initialize other service clients
     s3_service = S3StorageService()
-    transcription_client = TranscriptionClient()
     llm_client = LLMClient()
+    
+    if message_type == "text":
+        full_text = payload.Body 
 
-    # Download audio from Twilio
-    logger.info(f"Downloading audio from Twilio: {message_id}")
-    audio_data = await whatsapp_client.download_media(media_url)
+    elif message_type == "audio":
+        # Extract media URL
+        media_url = payload.get_media_url()
+        if not media_url:
+            raise ValueError("Audio message missing media URL")
 
-    # Upload to S3 for persistence
-    s3_key = await s3_service.upload_audio(audio_data, f"{message_id}.ogg")
-    logger.info(f"Uploaded to S3: {s3_key}")
+        # Use MessageSid as unique identifier for files
+        message_id = payload.MessageSid
+        logger.info(f"Processing audio message: {message_id}")
 
-    # Download from S3 for transcription
-    audio_data = await s3_service.download(s3_key)
+        transcription_client = TranscriptionClient()
 
-    # Transcribe audio
-    logger.info(f"Transcribing audio: {message_id}")
-    transcribed_text = await transcription_client.transcribe(audio_data, f"{message_id}.ogg")
-    logger.info(f"Transcription completed: {len(transcribed_text)} characters")
+        # Download audio from Twilio
+        logger.info(f"Downloading audio from Twilio: {message_id}")
+        audio_data = await whatsapp_client.download_media(media_url)
 
-    # Structure the transcription with LLM
-    logger.info(f"Structuring transcription with LLM: {message_id}")
-    structured_analysis = await llm_client.structure_text(transcribed_text)
+        # Transcribe audio
+        logger.info(f"Transcribing audio: {message_id}")
+        full_text = await transcription_client.transcribe(audio_data, filename=f"{message_id}.ogg")
+        logger.info(f"Transcription completed: {len(full_text)} characters")
+
+    else:
+        logger.info(f"Ignoring message type: {message_type}")
+        # Send response to user
+        await whatsapp_client.send_message(
+            recipient_phone=message_phonenumber,
+            body=f"Messages of type {message_type} are not supported, please send text/audio. Full payload: {payload.model_dump()}"
+        )
+        return {"status": "ignored", "reason": f"incorrect message type: {message_type}"}
+
+    # Structure the text with LLM
+    logger.info(f"Structuring text with LLM: {message_id}")
+
+    message_metadata = await llm_client.extract_message_metadata(full_text)
+
+    if message_metadata.intent in (MessageIntent.JOB_TO_BE_DONE, MessageIntent.KNOWLEDGE_DOCUMENT):
+        structured_analysis = await llm_client.structure_full_text(full_text, message_metadata.intent)
+    elif message_metadata.intent == MessageIntent.OTHER:
+        structured_analysis = None
+
+    # Upload artifacts to S3
+    key_prefix = f"{company_name}/{message_metadata.intent}/{message_metadata.tag}_{message_id}"
+
+    s3_keys = {}
+    if message_type == "audio":
+        # Upload to S3 for persistence
+        s3_audio_key = await s3_service.upload_audio(audio_data, f"{key_prefix}_audio.ogg")
+        s3_keys["audio"] = s3_audio_key
+        logger.info(f"Uploaded audio to S3: {s3_audio_key}")
+
+    # Upload analysed text
+    s3_full_text_key = s3_service.upload_text(full_text, filename=f"{key_prefix}_full_text.txt")
+    s3_keys["full_text"] = s3_full_text_key
+    logger.info(f"Uploaded text to analyze to S3: {s3_full_text_key}")
 
     # Format structured analysis for WhatsApp message
-    formatted_text = f"""*Summary:*
-{structured_analysis.summary}
+    if structured_analysis:
+        formatted_text = structured_analysis.format()
 
-*Job:*
-{structured_analysis.job}
+        # Save to database
+        s3_text_summary_key = await s3_service.upload_text(formatted_text, filename=f"{key_prefix}.text_summary.txt")
+        s3_keys["text_summary"] = s3_text_summary_key
 
-*Context:*
-{structured_analysis.context}
-
-*Action Items:*
-{chr(10).join(f'• {item}' for item in structured_analysis.action_items)}
-"""
-
-    # Save to database
-    await s3_service.upload_text(formatted_text, filename=f"{message_id}.ogg_summary.txt")
-    
-    # Send structured analysis back to user
-    logger.info(f"Sending structured analysis to {message_phonenumber}")
-    message_body = f"""Here's the parsed action items sent to the Admin team:
+        # Send structured analysis back to user
+        logger.info(f"Sending structured analysis to {message_phonenumber}")
+        message_body = f"""Successfully ingested the following items:
 
 {formatted_text}
 
-Note: You cannot reply to this message. If you wish to add more action items, please send a new voice note
+Note: Replies to this message are treated as new requests.
 """
-    await whatsapp_client.send_message(
-        recipient_phone=message_phonenumber,
-        body=message_body
-    )
+        await whatsapp_client.send_message(
+            recipient_phone=message_phonenumber,
+            body=message_body
+        )
+    else:
+        # For OTHER intent messages, send a simple confirmation
+        logger.info(f"Message classified as OTHER intent, sending simple confirmation")
+        await whatsapp_client.send_message(
+            recipient_phone=message_phonenumber,
+            body="Message received and processed. Note: This message was classified as informational only."
+        )
 
     logger.info(f"Processing complete for {message_id}")
 
     return {
         "status": "success",
         "message_id": message_id,
-        "s3_key": s3_key,
-        "transcription_length": len(transcribed_text),
-        "analysis": structured_analysis.model_dump()
+        "s3_keys": s3_keys,
+        "transcription_length": len(full_text),
+        "metadata": message_metadata.model_dump(),
+        "analysis": structured_analysis.model_dump() if structured_analysis else None
     }

@@ -9,14 +9,15 @@ import os
 import json
 import boto3
 import logging
+import asyncio
 from typing import Dict, Any
 from urllib.parse import parse_qs
 
 # Twilio's request validator
 from twilio.request_validator import RequestValidator
 
-# Customer lookup service from shared library
-from ai_voice_shared import CustomerLookupService
+# Customer lookup service and models from shared library
+from ai_voice_shared import CustomerLookupService, TwilioWebhookPayload
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -105,7 +106,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     try:
         # Attempt to fetch customer metadata (this validates authorization)
-        customer_metadata = customer_lookup_service.fetch_customer_metadata(from_number)
+        customer_metadata = asyncio.run(customer_lookup_service.fetch_customer_metadata(from_number))
         logger.info(f"Phone number {from_number} authorized for customer: {customer_metadata.customer_id}, company: {customer_metadata.company_name}")
     except Exception as e:
         # If lookup fails (404, validation error, etc.), phone number is not authorized
@@ -125,10 +126,20 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     # At this point, the request is verified.
     # The post_params dictionary contains the message data.
     # Example: {'From': 'whatsapp:+1...', 'Body': 'Hello', 'SmsMessageSid': 'SM...'}
-    
+
+    # Validate the payload structure using the shared TwilioWebhookPayload model
     try:
-        # Send the verified Twilio payload to SQS for processing
-        message_body = json.dumps(post_params)
+        validated_payload = TwilioWebhookPayload(**post_params)
+        logger.info(f"Validated webhook payload for message {validated_payload.MessageSid}")
+    except Exception as e:
+        err_msg = f"Invalid webhook payload structure: {str(e)}"
+        status_code = 400
+        logger.error(f"{err_msg}, returning {status_code}")
+        return {"statusCode": status_code, "body": json.dumps({"error": err_msg})}
+
+    try:
+        # Send the validated Twilio payload to SQS for processing
+        message_body = validated_payload.model_dump_json()
         logger.info(f"Sending message {message_body} to SQS")
         sqs.send_message(
             QueueUrl=sqs_queue_url,

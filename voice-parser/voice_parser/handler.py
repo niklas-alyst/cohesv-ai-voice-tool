@@ -13,7 +13,7 @@ import json
 import logging
 from typing import Any, Dict
 
-from voice_parser.core.payloads import TwilioWebhookPayload
+from ai_voice_shared import TwilioWebhookPayload
 from voice_parser.core.processor import process_message
 
 # Configure logging

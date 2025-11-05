@@ -25,7 +25,7 @@ class CustomerLookupService:
         self.lookup_url = settings.customer_lookup_url
         self.api_key = settings.customer_lookup_api_key
 
-    def fetch_customer_metadata(self, phone_number: str) -> CustomerMetadata:
+    async def fetch_customer_metadata(self, phone_number: str) -> CustomerMetadata:
         """
         Fetch customer metadata by phone number.
 
@@ -56,8 +56,8 @@ class CustomerLookupService:
 
         logger.info(f"Looking up customer metadata for phone number: {clean_phone_number}")
 
-        with httpx.Client() as client:
-            response = client.post(
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
                 self.lookup_url,
                 json=payload,
                 headers=headers,
