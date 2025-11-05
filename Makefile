@@ -7,20 +7,23 @@ TAG := latest
 # Service Repositories
 VOICE_PARSER_REPO := $(ECR_REGISTRY)/ai-voice-tool/voice-parser
 WEBHOOK_HANDLER_REPO := $(ECR_REGISTRY)/ai-voice-tool/webhook-handler
+CUSTOMER_LOOKUP_REPO := $(ECR_REGISTRY)/ai-voice-tool/customer-lookup-server
 
 # Image Names
 VOICE_PARSER_IMG := voice-parser
 WEBHOOK_HANDLER_IMG := webhook-handler
+CUSTOMER_LOOKUP_IMG := customer-lookup-server
 
 # Lambda Function Names
 VOICE_PARSER_LAMBDA := ai-voice-tool-voice-parser
 WEBHOOK_HANDLER_LAMBDA := ai-voice-tool-webhook-handler
+CUSTOMER_LOOKUP_LAMBDA := ai-voice-tool-customer-lookup-server
 
-.PHONY: all build deploy build-voice-parser deploy-voice-parser build-webhook-handler deploy-webhook-handler update-voice-parser-lambda update-webhook-handler-lambda update-lambdas install-shared-lib install-shared-lib-voice-parser install-shared-lib-webhook-handler
+.PHONY: all build deploy build-voice-parser deploy-voice-parser build-webhook-handler deploy-webhook-handler build-customer-lookup deploy-customer-lookup update-voice-parser-lambda update-webhook-handler-lambda update-customer-lookup-lambda update-lambdas install-shared-lib install-shared-lib-voice-parser install-shared-lib-webhook-handler
 
 all: build
-build: build-voice-parser build-webhook-handler
-deploy: deploy-voice-parser deploy-webhook-handler
+build: build-voice-parser build-webhook-handler build-customer-lookup
+deploy: deploy-voice-parser deploy-webhook-handler deploy-customer-lookup
 
 # --- Shared Library (Local Development) ---
 install-shared-lib-voice-parser:
@@ -79,5 +82,29 @@ update-webhook-handler-lambda:
 		--profile $(PROFILE)
 	@echo "Lambda function $(WEBHOOK_HANDLER_LAMBDA) updated successfully!"
 
+# --- Customer Lookup ---
+build-customer-lookup:
+	docker build --file customer-lookup-server/Dockerfile -t $(CUSTOMER_LOOKUP_IMG):$(TAG) .
+	docker tag $(CUSTOMER_LOOKUP_IMG):$(TAG) $(CUSTOMER_LOOKUP_REPO):$(TAG)
+
+deploy-customer-lookup: build-customer-lookup
+	aws ecr get-login-password --region $(REGION) --profile $(PROFILE) | docker login --username AWS --password-stdin $(ECR_REGISTRY)
+	docker push $(CUSTOMER_LOOKUP_REPO):$(TAG)
+	$(MAKE) update-customer-lookup-lambda
+
+update-customer-lookup-lambda:
+	@echo "Updating Lambda function $(CUSTOMER_LOOKUP_LAMBDA) with new image..."
+	aws lambda update-function-code \
+		--function-name $(CUSTOMER_LOOKUP_LAMBDA) \
+		--image-uri $(CUSTOMER_LOOKUP_REPO):$(TAG) \
+		--region $(REGION) \
+		--profile $(PROFILE)
+	@echo "Waiting for Lambda function to be updated..."
+	aws lambda wait function-updated \
+		--function-name $(CUSTOMER_LOOKUP_LAMBDA) \
+		--region $(REGION) \
+		--profile $(PROFILE)
+	@echo "Lambda function $(CUSTOMER_LOOKUP_LAMBDA) updated successfully!"
+
 # --- Update all Lambda functions ---
-update-lambdas: update-voice-parser-lambda update-webhook-handler-lambda
+update-lambdas: update-voice-parser-lambda update-webhook-handler-lambda update-customer-lookup-lambda
