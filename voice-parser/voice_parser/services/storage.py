@@ -19,7 +19,6 @@ class S3StorageService:
             region_name=settings.aws_region,
         )
         self.bucket_name = settings.s3_bucket_name
-        self.bucket_prefix = settings.s3_bucket_prefix
 
     async def exists(self, key: str) -> bool:
         """Check if an object exists in S3."""
@@ -35,7 +34,7 @@ class S3StorageService:
                 logger.error(f"Error checking if object exists in S3: {key}", exc_info=True)
                 raise
 
-    async def upload_audio(self, audio_data: bytes, filename: str, overwrite: bool = False) -> str:
+    async def upload_audio(self, audio_data: bytes, key: str, overwrite: bool = False) -> str:
         """Upload audio file to S3.
 
         Args:
@@ -49,7 +48,6 @@ class S3StorageService:
         Raises:
             FileExistsError: If file exists and overwrite is False
         """
-        key = f"{self.bucket_prefix}/voice-notes/{filename}"
 
         # Check if file exists and handle overwrite
         if await self.exists(key):
@@ -69,7 +67,7 @@ class S3StorageService:
         logger.info(f"Successfully uploaded audio file: {key}")
         return key
     
-    async def upload_text(self, text_data: str, filename: str, overwrite: bool = False) -> str:
+    async def upload_text(self, text_data: str, key: str, overwrite: bool = False) -> str:
         """Save text file to S3.
 
         Args:
@@ -83,8 +81,6 @@ class S3StorageService:
         Raises:
             FileExistsError: If file exists and overwrite is False
         """
-        key = f"{self.bucket_prefix}/voice-notes/{filename}"
-
         # Check if file exists and handle overwrite
         if await self.exists(key):
             if not overwrite:

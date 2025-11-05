@@ -13,7 +13,6 @@ class S3Settings(BaseSettings):
 
     aws_region: str
     s3_bucket_name: str
-    s3_bucket_prefix: str
     aws_profile: Optional[str] = None
 
 

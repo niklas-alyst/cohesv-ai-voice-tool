@@ -117,7 +117,7 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
         logger.info(f"Uploaded audio to S3: {s3_audio_key}")
 
     # Upload analysed text
-    s3_full_text_key = s3_service.upload_text(full_text, filename=f"{key_prefix}_full_text.txt")
+    s3_full_text_key = s3_service.upload_text(full_text, key=f"{key_prefix}_full_text.txt")
     s3_keys["full_text"] = s3_full_text_key
     logger.info(f"Uploaded text to analyze to S3: {s3_full_text_key}")
 
@@ -126,7 +126,7 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
         formatted_text = structured_analysis.format()
 
         # Save to database
-        s3_text_summary_key = await s3_service.upload_text(formatted_text, filename=f"{key_prefix}.text_summary.txt")
+        s3_text_summary_key = await s3_service.upload_text(formatted_text, key=f"{key_prefix}.text_summary.txt")
         s3_keys["text_summary"] = s3_text_summary_key
 
         # Send structured analysis back to user
