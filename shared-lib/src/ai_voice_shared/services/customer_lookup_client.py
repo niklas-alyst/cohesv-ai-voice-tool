@@ -1,6 +1,7 @@
 """Customer lookup service for fetching customer metadata."""
 
-import httpx
+import aioboto3
+import json
 import logging
 from typing import Optional
 
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class CustomerLookupClient:
-    """Service for looking up customer metadata by phone number."""
+    """Service for looking up customer metadata by phone number via AWS Lambda."""
 
     def __init__(self, settings: Optional[CustomerLookupSettings] = None):
         """
@@ -22,15 +23,12 @@ class CustomerLookupClient:
         """
         if settings is None:
             settings = CustomerLookupSettings()
-        self.lookup_url = settings.customer_lookup_url
-        self.api_key = settings.customer_lookup_api_key
+        self.lambda_function_name = settings.customer_lookup_lambda_function_name
+        self.aws_region = settings.aws_region
 
     async def fetch_customer_metadata(self, phone_number: str) -> CustomerMetadata:
         """
-        Fetch customer metadata by phone number.
-
-        Uses POST request for security (phone numbers are sensitive data and
-        should not appear in URL logs).
+        Fetch customer metadata by phone number via AWS Lambda invocation.
 
         Args:
             phone_number: Phone number to lookup (with or without whatsapp: prefix)
@@ -39,16 +37,10 @@ class CustomerLookupClient:
             CustomerMetadata: Customer information including customer_id, company_id, and company_name
 
         Raises:
-            httpx.HTTPStatusError: If the API request fails
-            ValueError: If the response is missing required fields
+            ValueError: If the Lambda invocation fails or returns an error status
         """
         # Remove whatsapp: prefix if present
         clean_phone_number = phone_number.replace("whatsapp:", "")
-
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
 
         payload = {
             "phone_number": clean_phone_number
@@ -56,21 +48,40 @@ class CustomerLookupClient:
 
         logger.info(f"Looking up customer metadata for phone number: {clean_phone_number}")
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                self.lookup_url,
-                json=payload,
-                headers=headers,
-                timeout=10.0
-            )
-            response.raise_for_status()
-            data = response.json()
-
-        logger.info(f"Successfully retrieved customer metadata for {clean_phone_number}")
-
-        # Validate response has required fields
         try:
-            return CustomerMetadata.model_validate(data)
+            # Use aioboto3 for async Lambda invocation
+            session = aioboto3.Session()
+            async with session.client('lambda', region_name=self.aws_region) as lambda_client:
+                # Invoke Lambda function synchronously
+                response = await lambda_client.invoke(
+                    FunctionName=self.lambda_function_name,
+                    InvocationType='RequestResponse',
+                    Payload=json.dumps(payload)
+                )
+
+                # Parse response
+                response_payload = await response['Payload'].read()
+                response_data = json.loads(response_payload)
+
+                # Check for Lambda errors
+                if response.get('FunctionError'):
+                    logger.error(f"Lambda function error: {response_data}")
+                    raise ValueError(f"Lambda function error: {response_data}")
+
+                # Parse status code from Lambda response
+                status_code = response_data.get('statusCode', 500)
+                body = json.loads(response_data.get('body', '{}'))
+
+                if status_code == 404:
+                    raise ValueError(f"Customer not found for phone number: {clean_phone_number}")
+                elif status_code != 200:
+                    raise ValueError(f"Lambda returned error status {status_code}: {body}")
+
+                logger.info(f"Successfully retrieved customer metadata for {clean_phone_number}")
+
+                # Validate response has required fields
+                return CustomerMetadata.model_validate(body)
+
         except Exception as e:
-            logger.error(f"Failed to parse customer metadata response: {e}")
-            raise ValueError(f"Invalid customer metadata response: {e}")
+            logger.error(f"Failed to fetch customer metadata: {e}")
+            raise ValueError(f"Customer lookup failed: {e}")

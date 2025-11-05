@@ -9,5 +9,5 @@ class CustomerLookupSettings(BaseSettings):
 
     model_config = ConfigDict(env_file=".env", extra="ignore")
 
-    customer_lookup_url: str
-    customer_lookup_api_key: str
+    customer_lookup_lambda_function_name: str
+    aws_region: str

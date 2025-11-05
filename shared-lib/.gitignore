@@ -1,0 +1,4 @@
+src/ai_voice_shared/__pycache__
+src/ai_voice_shared/services/__pycache__
+tests/__pycache__
+tests/external_services/__pycache__
