@@ -8,22 +8,25 @@ TAG := latest
 VOICE_PARSER_REPO := $(ECR_REGISTRY)/ai-voice-tool/voice-parser
 WEBHOOK_HANDLER_REPO := $(ECR_REGISTRY)/ai-voice-tool/webhook-handler
 CUSTOMER_LOOKUP_REPO := $(ECR_REGISTRY)/ai-voice-tool/customer-lookup-server
+DATA_API_REPO := $(ECR_REGISTRY)/ai-voice-tool/data-api-server
 
 # Image Names
 VOICE_PARSER_IMG := voice-parser
 WEBHOOK_HANDLER_IMG := webhook-handler
 CUSTOMER_LOOKUP_IMG := customer-lookup-server
+DATA_API_IMG := data-api-server
 
 # Lambda Function Names
 VOICE_PARSER_LAMBDA := ai-voice-tool-voice-parser
 WEBHOOK_HANDLER_LAMBDA := ai-voice-tool-webhook-handler
 CUSTOMER_LOOKUP_LAMBDA := ai-voice-tool-customer-lookup-server
+DATA_API_LAMBDA := ai-voice-tool-data-api-server
 
-.PHONY: all build deploy build-voice-parser deploy-voice-parser build-webhook-handler deploy-webhook-handler build-customer-lookup deploy-customer-lookup update-voice-parser-lambda update-webhook-handler-lambda update-customer-lookup-lambda update-lambdas install-shared-lib install-shared-lib-voice-parser install-shared-lib-webhook-handler
+.PHONY: all build deploy build-voice-parser deploy-voice-parser build-webhook-handler deploy-webhook-handler build-customer-lookup deploy-customer-lookup build-data-api deploy-data-api update-voice-parser-lambda update-webhook-handler-lambda update-customer-lookup-lambda update-data-api-lambda update-lambdas install-shared-lib install-shared-lib-voice-parser install-shared-lib-webhook-handler
 
 all: build
-build: build-voice-parser build-webhook-handler build-customer-lookup
-deploy: deploy-voice-parser deploy-webhook-handler deploy-customer-lookup
+build: build-voice-parser build-webhook-handler build-customer-lookup build-data-api
+deploy: deploy-voice-parser deploy-webhook-handler deploy-customer-lookup deploy-data-api
 
 # --- Shared Library (Local Development) ---
 install-shared-lib-voice-parser:
@@ -106,5 +109,29 @@ update-customer-lookup-lambda:
 		--profile $(PROFILE)
 	@echo "Lambda function $(CUSTOMER_LOOKUP_LAMBDA) updated successfully!"
 
+# --- Data API Server ---
+build-data-api:
+	docker build --file data-api-server/Dockerfile -t $(DATA_API_IMG):$(TAG) .
+	docker tag $(DATA_API_IMG):$(TAG) $(DATA_API_REPO):$(TAG)
+
+deploy-data-api: build-data-api
+	aws ecr get-login-password --region $(REGION) --profile $(PROFILE) | docker login --username AWS --password-stdin $(ECR_REGISTRY)
+	docker push $(DATA_API_REPO):$(TAG)
+	$(MAKE) update-data-api-lambda
+
+update-data-api-lambda:
+	@echo "Updating Lambda function $(DATA_API_LAMBDA) with new image..."
+	aws lambda update-function-code \
+		--function-name $(DATA_API_LAMBDA) \
+		--image-uri $(DATA_API_REPO):$(TAG) \
+		--region $(REGION) \
+		--profile $(PROFILE)
+	@echo "Waiting for Lambda function to be updated..."
+	aws lambda wait function-updated \
+		--function-name $(DATA_API_LAMBDA) \
+		--region $(REGION) \
+		--profile $(PROFILE)
+	@echo "Lambda function $(DATA_API_LAMBDA) updated successfully!"
+
 # --- Update all Lambda functions ---
-update-lambdas: update-voice-parser-lambda update-webhook-handler-lambda update-customer-lookup-lambda
+update-lambdas: update-voice-parser-lambda update-webhook-handler-lambda update-customer-lookup-lambda update-data-api-lambda

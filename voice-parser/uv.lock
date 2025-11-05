@@ -23,6 +23,13 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.11.0" },
 ]
 
+[package.metadata.requires-dev]
+dev = [
+    { name = "boto3", specifier = ">=1.40.61" },
+    { name = "pytest", specifier = ">=8.4.2" },
+    { name = "pytest-asyncio", specifier = ">=1.2.0" },
+]
+
 [[package]]
 name = "aioboto3"
 version = "15.5.0"

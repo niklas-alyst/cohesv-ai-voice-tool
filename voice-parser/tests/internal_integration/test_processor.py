@@ -6,9 +6,9 @@ from dotenv import load_dotenv
 from unittest.mock import AsyncMock, patch, MagicMock
 from ai_voice_shared import TwilioWebhookPayload
 from voice_parser.core.processor import process_message
-from voice_parser.services.storage import S3StorageService
+from ai_voice_shared.services.s3_service import S3Service
 from voice_parser.services.llm.models import JobsToBeDoneDocumentModel, MessageMetadata, MessageIntent
-from voice_parser.core.settings import S3Settings
+from ai_voice_shared.settings import S3Settings
 from ai_voice_shared import CustomerMetadata
 
 
@@ -31,7 +31,7 @@ def test_s3_settings():
 @pytest.fixture
 def storage_service(test_s3_settings):
     """Create storage service with test settings"""
-    return S3StorageService(settings=test_s3_settings)
+    return S3Service(settings=test_s3_settings)
 
 
 @pytest.fixture
@@ -106,10 +106,10 @@ class TestProcessorIntegration:
                 mock_whatsapp_instance.send_message = AsyncMock()
                 mock_whatsapp_class.return_value = mock_whatsapp_instance
 
-                # Mock S3StorageService
-                with patch('voice_parser.core.processor.S3StorageService') as mock_s3_class:
+                # Mock S3Service
+                with patch('voice_parser.core.processor.S3Service') as mock_s3_class:
                     mock_s3_instance = MagicMock()
-                    mock_s3_instance.upload_text = AsyncMock(side_effect=[
+                    mock_s3_instance.upload = AsyncMock(side_effect=[
                         "test-company/JOB_TO_BE_DONE/test-job-summary_MSG123/full_text.txt",
                         "test-company/JOB_TO_BE_DONE/test-job-summary_MSG123/text_summary.txt"
                     ])
@@ -147,7 +147,7 @@ class TestProcessorIntegration:
                         assert "Structured text:" in second_call.kwargs["body"]
 
                         # Verify S3 uploads occurred (full_text + text_summary)
-                        assert mock_s3_instance.upload_text.call_count == 2
+                        assert mock_s3_instance.upload.call_count == 2
 
                         # Verify LLM calls
                         mock_llm_instance.extract_message_metadata.assert_called_once()
@@ -193,11 +193,11 @@ class TestProcessorIntegration:
                 mock_whatsapp_instance.send_message = AsyncMock()
                 mock_whatsapp_class.return_value = mock_whatsapp_instance
 
-                # Mock S3StorageService
-                with patch('voice_parser.core.processor.S3StorageService') as mock_s3_class:
+                # Mock S3Service
+                with patch('voice_parser.core.processor.S3Service') as mock_s3_class:
                     mock_s3_instance = MagicMock()
-                    mock_s3_instance.upload_audio = AsyncMock(return_value="test-company/JOB_TO_BE_DONE/test-job-summary_MSG123/audio.ogg")
-                    mock_s3_instance.upload_text = AsyncMock(side_effect=[
+                    mock_s3_instance.upload = AsyncMock(side_effect=[
+                        "test-company/JOB_TO_BE_DONE/test-job-summary_MSG123/audio.ogg",
                         "test-company/JOB_TO_BE_DONE/test-job-summary_MSG123/full_text.txt",
                         "test-company/JOB_TO_BE_DONE/test-job-summary_MSG123/text_summary.txt"
                     ])
@@ -241,8 +241,7 @@ class TestProcessorIntegration:
                             mock_whatsapp_instance.download_media.assert_called_once_with(media_url)
 
                             # Verify S3 uploads were called (audio + full_text + text_summary)
-                            mock_s3_instance.upload_audio.assert_called_once()
-                            assert mock_s3_instance.upload_text.call_count == 2
+                            assert mock_s3_instance.upload.call_count == 3
 
                             # Verify transcription was called with both audio_data and filename
                             mock_transcription_instance.transcribe.assert_called_once()
@@ -300,11 +299,11 @@ class TestProcessorIntegration:
                 mock_whatsapp_instance.send_message = AsyncMock()
                 mock_whatsapp_class.return_value = mock_whatsapp_instance
 
-                # Mock S3StorageService
-                with patch('voice_parser.core.processor.S3StorageService') as mock_s3_class:
+                # Mock S3Service
+                with patch('voice_parser.core.processor.S3Service') as mock_s3_class:
                     mock_s3_instance = MagicMock()
-                    mock_s3_instance.upload_audio = AsyncMock(return_value="test-company/JOB_TO_BE_DONE/test-job-summary_MSG123/audio.ogg")
-                    mock_s3_instance.upload_text = AsyncMock(side_effect=[
+                    mock_s3_instance.upload = AsyncMock(side_effect=[
+                        "test-company/JOB_TO_BE_DONE/test-job-summary_MSG123/audio.ogg",
                         "test-company/JOB_TO_BE_DONE/test-job-summary_MSG123/full_text.txt",
                         "test-company/JOB_TO_BE_DONE/test-job-summary_MSG123/text_summary.txt"
                     ])

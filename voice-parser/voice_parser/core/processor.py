@@ -13,8 +13,8 @@ import logging
 from typing import Any, Dict
 
 from ai_voice_shared import TwilioWebhookPayload
+from ai_voice_shared.services.s3_service import S3Service
 from voice_parser.services.twilio_whatsapp_client import TwilioWhatsAppClient
-from voice_parser.services.storage import S3StorageService
 from voice_parser.services.transcription import TranscriptionClient
 from voice_parser.services.llm import LLMClient, MessageIntent
 from ai_voice_shared import CustomerLookupClient
@@ -60,7 +60,7 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
     )
 
     # Initialize other service clients
-    s3_service = S3StorageService()
+    s3_service = S3Service()
     llm_client = LLMClient()
     
     if message_type == "text":
@@ -112,12 +112,22 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
     s3_keys = {}
     if message_type == "audio":
         # Upload to S3 for persistence
-        s3_audio_key = await s3_service.upload_audio(audio_data, f"{key_prefix}_audio.ogg")
+        s3_audio_key = await s3_service.upload(
+            data=audio_data,
+            key=f"{key_prefix}_audio.ogg",
+            content_type="audio/ogg",
+            overwrite=False,
+        )
         s3_keys["audio"] = s3_audio_key
         logger.info(f"Uploaded audio to S3: {s3_audio_key}")
 
     # Upload analysed text
-    s3_full_text_key = s3_service.upload_text(full_text, key=f"{key_prefix}_full_text.txt")
+    s3_full_text_key = await s3_service.upload(
+        data=full_text.encode("utf-8"),
+        key=f"{key_prefix}_full_text.txt",
+        content_type="text/plain",
+        overwrite=False,
+    )
     s3_keys["full_text"] = s3_full_text_key
     logger.info(f"Uploaded text to analyze to S3: {s3_full_text_key}")
 
@@ -126,7 +136,12 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
         formatted_text = structured_analysis.format()
 
         # Save to database
-        s3_text_summary_key = await s3_service.upload_text(formatted_text, key=f"{key_prefix}.text_summary.txt")
+        s3_text_summary_key = await s3_service.upload(
+            data=formatted_text.encode("utf-8"),
+            key=f"{key_prefix}.text_summary.txt",
+            content_type="text/plain",
+            overwrite=False,
+        )
         s3_keys["text_summary"] = s3_text_summary_key
 
         # Send structured analysis back to user
@@ -143,7 +158,7 @@ Note: Replies to this message are treated as new requests.
         )
     else:
         # For OTHER intent messages, send a simple confirmation
-        logger.info(f"Message classified as OTHER intent, sending simple confirmation")
+        logger.info("Message classified as OTHER intent, sending simple confirmation")
         await whatsapp_client.send_message(
             recipient_phone=message_phonenumber,
             body="Message received and processed. Note: This message was classified as informational only."

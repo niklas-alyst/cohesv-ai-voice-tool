@@ -1,0 +1,33 @@
+[project]
+name = "data-api-server"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Niklas", email = "niklas@alyst.se" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "ai-voice-shared",
+    "boto3>=1.40.46,<1.40.62",
+    "fastapi>=0.121.0",
+    "mangum>=0.19.0",
+    "pydantic>=2.12.4",
+    "pydantic-settings>=2.11.0",
+]
+
+[project.scripts]
+data-api-server = "data_api_server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.3",
+    "uvicorn>=0.38.0",
+]
+
+[tool.uv.sources]
+ai-voice-shared = { path = "../shared-lib" }
