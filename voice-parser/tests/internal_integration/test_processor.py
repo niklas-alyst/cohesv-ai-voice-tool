@@ -4,10 +4,10 @@ import json
 from pathlib import Path
 from dotenv import load_dotenv
 from unittest.mock import AsyncMock, patch, MagicMock
-from voice_parser.models import TwilioWebhookPayload
+from voice_parser.core.payloads import TwilioWebhookPayload
 from voice_parser.core.processor import process_message
 from voice_parser.services.storage import S3StorageService
-from voice_parser.services.llm import VoiceNoteAnalysis
+from voice_parser.services.llm import JobsToBeDoneDocument
 from voice_parser.core.settings import S3Settings
 
 
@@ -118,7 +118,7 @@ class TestProcessorIntegration:
 
         # Mock transcription and analysis
         mock_transcription = "This is a test transcription of the audio message."
-        mock_analysis = VoiceNoteAnalysis(
+        mock_analysis = JobsToBeDoneDocument(
             summary="Test summary",
             topics=["topic1", "topic2"],
             action_items=["action1", "action2"],
@@ -190,7 +190,7 @@ class TestProcessorIntegration:
         """Test the structured response format sent via WhatsApp"""
         # Mock transcription and analysis
         mock_transcription = "This is a test transcription of the audio message."
-        mock_analysis = VoiceNoteAnalysis(
+        mock_analysis = JobsToBeDoneDocument(
             summary="Test summary of the message",
             topics=["topic1", "topic2", "topic3"],
             action_items=["action1", "action2"],

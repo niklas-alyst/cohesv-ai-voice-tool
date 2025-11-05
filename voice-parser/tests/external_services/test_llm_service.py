@@ -1,7 +1,7 @@
 import pytest
 import os
 from dotenv import load_dotenv
-from voice_parser.services.llm import LLMClient, VoiceNoteAnalysis
+from voice_parser.services.llm import LLMClient, JobsToBeDoneDocument
 from voice_parser.core.settings import OpenAISettings
 
 
@@ -42,7 +42,7 @@ class TestLLMClientIntegration:
         result = await llm_client.structure_text(transcribed_text)
 
         # Verify the result is a VoiceNoteAnalysis object
-        assert isinstance(result, VoiceNoteAnalysis)
+        assert isinstance(result, JobsToBeDoneDocument)
 
         # Verify all required fields are present and non-empty
         assert result.summary
