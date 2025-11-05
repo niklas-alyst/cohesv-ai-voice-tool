@@ -1,7 +1,10 @@
 """Data repository for customer lookup."""
 
+import json
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
+import boto3
+from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 
@@ -9,20 +12,41 @@ logger = logging.getLogger(__name__)
 class CustomerRepository:
     """Repository for customer data lookup."""
 
-    # Hardcoded dummy data - will be replaced with database queries later
-    CUSTOMERS = [
-        {
-            "phone_number": "+61400000000",
-            "customer_id": "cust_dummy_001",
-            "company_id": "comp_dummy_001",
-            "company_name": "Dummy Test Company"
-        },
-        # Add more dummy customers here as needed
-    ]
+    def __init__(self, s3_bucket: str = "cohesv-ai-voice-tool", s3_key: str = "customers.json"):
+        """Initialize the customer repository.
 
-    def __init__(self):
-        """Initialize the customer repository."""
-        logger.info("CustomerRepository initialized with hardcoded data")
+        Args:
+            s3_bucket: S3 bucket name containing the customers data
+            s3_key: S3 key (path) to the customers.json file
+        """
+        self.s3_bucket = s3_bucket
+        self.s3_key = s3_key
+        self.s3_client = boto3.client("s3")
+        self._customers: Optional[List[Dict[str, Any]]] = None
+        logger.info(f"CustomerRepository initialized with S3 source: s3://{s3_bucket}/{s3_key}")
+
+    def _load_customers(self) -> List[Dict[str, Any]]:
+        """Load customers data from S3.
+
+        Returns:
+            List of customer dictionaries
+
+        Raises:
+            ClientError: If S3 access fails
+        """
+        if self._customers is not None:
+            return self._customers
+
+        try:
+            logger.info(f"Loading customers from S3: s3://{self.s3_bucket}/{self.s3_key}")
+            response = self.s3_client.get_object(Bucket=self.s3_bucket, Key=self.s3_key)
+            data = response["Body"].read().decode("utf-8")
+            self._customers = json.loads(data)
+            logger.info(f"Loaded {len(self._customers)} customers from S3")
+            return self._customers
+        except ClientError as e:
+            logger.error(f"Failed to load customers from S3: {e}")
+            raise
 
     def find_by_phone_number(self, phone_number: str) -> Optional[Dict[str, Any]]:
         """
@@ -36,7 +60,8 @@ class CustomerRepository:
         """
         logger.info(f"Looking up customer by phone number: {phone_number}")
 
-        for customer in self.CUSTOMERS:
+        customers = self._load_customers()
+        for customer in customers:
             if customer["phone_number"] == phone_number:
                 logger.info(f"Customer found: {customer['customer_id']}")
                 return {

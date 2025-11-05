@@ -28,8 +28,8 @@ class TestLambdaIntegration:
         self, lambda_client, lambda_function_name
     ):
         """Test Lambda invocation with a valid phone number."""
-        # Prepare test event - using hardcoded phone number from repository
-        event = {"phone_number": "+61400000000"}
+        # Prepare test event - using test-dummy phone number from repository
+        event = {"phone_number": "+15555555555"}
 
         # Invoke Lambda
         response = lambda_client.invoke(
@@ -68,8 +68,8 @@ class TestLambdaIntegration:
         self, lambda_client, lambda_function_name
     ):
         """Test Lambda invocation with whatsapp: prefix."""
-        # Prepare test event with whatsapp prefix - using hardcoded phone number
-        event = {"phone_number": "whatsapp:+61400000000"}
+        # Prepare test event with whatsapp prefix - using test-dummy phone number
+        event = {"phone_number": "whatsapp:+15555555555"}
 
         # Invoke Lambda
         response = lambda_client.invoke(
@@ -140,8 +140,8 @@ class TestLambdaIntegration:
 
     def test_lambda_invoke_async(self, lambda_client, lambda_function_name):
         """Test async Lambda invocation."""
-        # Prepare test event - using hardcoded phone number
-        event = {"phone_number": "+61400000000"}
+        # Prepare test event - using test-dummy phone number
+        event = {"phone_number": "+15555555555"}
 
         # Invoke Lambda asynchronously
         response = lambda_client.invoke(
