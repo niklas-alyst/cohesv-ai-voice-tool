@@ -1,7 +1,6 @@
 """Integration tests for S3 service using real AWS S3."""
 
 import os
-from pathlib import Path
 
 import pytest
 from dotenv import load_dotenv

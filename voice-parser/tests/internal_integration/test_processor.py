@@ -89,9 +89,9 @@ class TestProcessorIntegration:
         )
         mock_analysis = JobsToBeDoneDocumentModel(
             summary="Test summary",
-            topics=["topic1", "topic2"],
-            action_items=["action1", "action2"],
-            sentiment="neutral"
+            job="Johnson bathroom renovation",
+            context="Tasks for tomorrow",
+            action_items=["action1", "action2"]
         )
 
         # Mock CustomerLookupClient
@@ -110,8 +110,8 @@ class TestProcessorIntegration:
                 with patch('voice_parser.core.processor.S3Service') as mock_s3_class:
                     mock_s3_instance = MagicMock()
                     mock_s3_instance.upload = AsyncMock(side_effect=[
-                        "test-company/JOB_TO_BE_DONE/test-job-summary_MSG123/full_text.txt",
-                        "test-company/JOB_TO_BE_DONE/test-job-summary_MSG123/text_summary.txt"
+                        "test-company/job-to-be-done/test-job-summary_MSG123/full_text.txt",
+                        "test-company/job-to-be-done/test-job-summary_MSG123/text_summary.txt"
                     ])
                     mock_s3_class.return_value = mock_s3_instance
 
@@ -132,7 +132,7 @@ class TestProcessorIntegration:
                         assert "full_text" in result["s3_keys"]
                         assert "text_summary" in result["s3_keys"]
                         assert "metadata" in result
-                        assert result["metadata"]["intent"] == "JOB_TO_BE_DONE"
+                        assert result["metadata"]["intent"] == "job-to-be-done"
                         assert result["metadata"]["tag"] == "test-job-summary"
                         assert result["analysis"] == mock_analysis.model_dump()
 
@@ -144,7 +144,7 @@ class TestProcessorIntegration:
                         first_call = mock_whatsapp_instance.send_message.call_args_list[0]
                         assert "Message received" in first_call.kwargs["body"]
                         second_call = mock_whatsapp_instance.send_message.call_args_list[1]
-                        assert "Structured text:" in second_call.kwargs["body"]
+                        assert "Successfully ingested the following items:" in second_call.kwargs["body"]
 
                         # Verify S3 uploads occurred (full_text + text_summary)
                         assert mock_s3_instance.upload.call_count == 2
@@ -175,9 +175,9 @@ class TestProcessorIntegration:
         mock_transcription = "This is a test transcription of the audio message."
         mock_analysis = JobsToBeDoneDocumentModel(
             summary="Test summary",
-            topics=["topic1", "topic2"],
-            action_items=["action1", "action2"],
-            sentiment="neutral"
+            job="Johnson bathroom renovation",
+            context="Tasks for tomorrow",
+            action_items=["action1", "action2"]
         )
 
         # Mock CustomerLookupClient
@@ -197,9 +197,9 @@ class TestProcessorIntegration:
                 with patch('voice_parser.core.processor.S3Service') as mock_s3_class:
                     mock_s3_instance = MagicMock()
                     mock_s3_instance.upload = AsyncMock(side_effect=[
-                        "test-company/JOB_TO_BE_DONE/test-job-summary_MSG123/audio.ogg",
-                        "test-company/JOB_TO_BE_DONE/test-job-summary_MSG123/full_text.txt",
-                        "test-company/JOB_TO_BE_DONE/test-job-summary_MSG123/text_summary.txt"
+                        "test-company/job-to-be-done/test-job-summary_MSG123/audio.ogg",
+                        "test-company/job-to-be-done/test-job-summary_MSG123/full_text.txt",
+                        "test-company/job-to-be-done/test-job-summary_MSG123/text_summary.txt"
                     ])
                     mock_s3_class.return_value = mock_s3_instance
 
@@ -227,10 +227,10 @@ class TestProcessorIntegration:
                             assert "full_text" in result["s3_keys"]
                             assert "text_summary" in result["s3_keys"]
                             assert "test-company" in result["s3_keys"]["audio"]
-                            assert "JOB_TO_BE_DONE" in result["s3_keys"]["audio"]
+                            assert "job-to-be-done" in result["s3_keys"]["audio"]
                             assert result["transcription_length"] == len(mock_transcription)
                             assert "metadata" in result
-                            assert result["metadata"]["intent"] == "JOB_TO_BE_DONE"
+                            assert result["metadata"]["intent"] == "job-to-be-done"
                             assert result["metadata"]["tag"] == "test-job-summary"
                             assert result["analysis"] == mock_analysis.model_dump()
 
@@ -261,7 +261,7 @@ class TestProcessorIntegration:
                             assert "Message received" in first_call.kwargs["body"]
                             second_call = mock_whatsapp_instance.send_message.call_args_list[1]
                             assert "whatsapp:+15551234567" in second_call.kwargs["recipient_phone"]
-                            assert "Structured text:" in second_call.kwargs["body"]
+                            assert "Successfully ingested the following items:" in second_call.kwargs["body"]
 
     @pytest.mark.asyncio
     async def test_process_audio_message_response_format(
@@ -281,9 +281,9 @@ class TestProcessorIntegration:
         mock_transcription = "This is a test transcription of the audio message."
         mock_analysis = JobsToBeDoneDocumentModel(
             summary="Test summary of the message",
-            topics=["topic1", "topic2", "topic3"],
-            action_items=["action1", "action2"],
-            sentiment="positive"
+            job="Johnson bathroom renovation",
+            context="Tasks for tomorrow",
+            action_items=["action1", "action2"]
         )
 
         # Mock CustomerLookupClient
@@ -303,9 +303,9 @@ class TestProcessorIntegration:
                 with patch('voice_parser.core.processor.S3Service') as mock_s3_class:
                     mock_s3_instance = MagicMock()
                     mock_s3_instance.upload = AsyncMock(side_effect=[
-                        "test-company/JOB_TO_BE_DONE/test-job-summary_MSG123/audio.ogg",
-                        "test-company/JOB_TO_BE_DONE/test-job-summary_MSG123/full_text.txt",
-                        "test-company/JOB_TO_BE_DONE/test-job-summary_MSG123/text_summary.txt"
+                        "test-company/job-to-be-done/test-job-summary_MSG123/audio.ogg",
+                        "test-company/job-to-be-done/test-job-summary_MSG123/full_text.txt",
+                        "test-company/job-to-be-done/test-job-summary_MSG123/text_summary.txt"
                     ])
                     mock_s3_class.return_value = mock_s3_instance
 
@@ -337,17 +337,16 @@ class TestProcessorIntegration:
                             sent_body = second_call.kwargs["body"]
 
                             # Verify the structured format in the response
-                            assert "Structured text:" in sent_body
+                            assert "Successfully ingested the following items:" in sent_body
                             assert "*Summary:*" in sent_body
-                            assert "*Topics:*" in sent_body
+                            assert "*Job:*" in sent_body
+                            assert "*Context:*" in sent_body
                             assert "*Action Items:*" in sent_body
-                            assert "*Sentiment:*" in sent_body
 
                             # Verify analysis structure in result
                             analysis = result["analysis"]
                             assert "summary" in analysis
-                            assert "topics" in analysis
+                            assert "job" in analysis
+                            assert "context" in analysis
                             assert "action_items" in analysis
-                            assert "sentiment" in analysis
-                            assert isinstance(analysis["topics"], list)
                             assert isinstance(analysis["action_items"], list)

@@ -157,5 +157,5 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return {"statusCode": 500, "body": json.dumps({"error": "Failed to process webhook"})}
 
     # Return 200 OK to Twilio
-    logger.info(f"Lambda finished successfully, returning 200")
+    logger.info("Lambda finished successfully, returning 200")
     return {"statusCode": 200, "body": json.dumps({"status": "received"})}

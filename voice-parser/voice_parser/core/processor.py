@@ -51,6 +51,7 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
     company_id = customer_metadata.company_id
 
     message_type = payload.get_message_type()
+    message_id = payload.MessageSid
     logger.info(f"Received message of type {message_type} from {message_phonenumber}")
 
     # Send confirmation back to client
@@ -62,9 +63,9 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
     # Initialize other service clients
     s3_service = S3Service()
     llm_client = LLMClient()
-    
+
     if message_type == "text":
-        full_text = payload.Body 
+        full_text = payload.Body
 
     elif message_type == "audio":
         # Extract media URL
@@ -72,8 +73,6 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
         if not media_url:
             raise ValueError("Audio message missing media URL")
 
-        # Use MessageSid as unique identifier for files
-        message_id = payload.MessageSid
         logger.info(f"Processing audio message: {message_id}")
 
         transcription_client = TranscriptionClient()

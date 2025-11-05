@@ -1,7 +1,8 @@
 import pytest
 import os
 from dotenv import load_dotenv
-from voice_parser.services.llm import LLMClient, JobsToBeDoneDocument
+from voice_parser.services.llm import LLMClient, MessageIntent
+from voice_parser.services.llm.models import JobsToBeDoneDocumentModel
 from voice_parser.core.settings import OpenAISettings
 
 
@@ -32,30 +33,33 @@ class TestLLMClientIntegration:
     async def test_structure_text_basic_voice_note(self, llm_client):
         """Test structuring a basic voice note transcription"""
         transcribed_text = """
-        Hey, just wanted to remind myself about the three things I need to do tomorrow.
-        First, I need to call the dentist to schedule my appointment.
-        Second, I should finish reviewing the quarterly budget report.
-        And third, I want to start planning the team meeting for next week.
-        Overall, I'm feeling pretty optimistic about getting these done.
+        Hey, just wanted to remind myself about the three things I need to do tomorrow for the Johnson bathroom renovation.
+        First, I need to call the supplier to order the new fixtures.
+        Second, I should finish checking the plumbing layout.
+        And third, I want to schedule the inspection with the building department.
         """
 
-        result = await llm_client.structure_text(transcribed_text)
+        result = await llm_client.structure_full_text(
+            transcribed_text,
+            message_intent=MessageIntent.JOB_TO_BE_DONE
+        )
 
-        # Verify the result is a VoiceNoteAnalysis object
-        assert isinstance(result, JobsToBeDoneDocument)
+        # Verify the result is a JobsToBeDoneDocumentModel object
+        assert isinstance(result, JobsToBeDoneDocumentModel)
 
         # Verify all required fields are present and non-empty
         assert result.summary
         assert isinstance(result.summary, str)
         assert len(result.summary) > 0
 
-        assert result.topics
-        assert isinstance(result.topics, list)
-        assert len(result.topics) > 0
+        assert result.job
+        assert isinstance(result.job, str)
+        assert len(result.job) > 0
+
+        assert result.context
+        assert isinstance(result.context, str)
+        assert len(result.context) > 0
 
         assert result.action_items
         assert isinstance(result.action_items, list)
         assert len(result.action_items) >= 3  # Should detect the 3 mentioned tasks
-
-        assert result.sentiment in ["positive", "neutral", "negative"]
-        assert result.sentiment == "positive"  # Text indicates optimism
