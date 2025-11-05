@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "ai-voice-shared",
     "boto3>=1.40.52",
     "httpx>=0.28.1",
     "openai>=2.3.0",
@@ -24,3 +25,4 @@ dev = [
 
 [tool.uv.sources]
 voice-parser = { workspace = true }
+ai-voice-shared = { path = "../shared-lib", editable = true }

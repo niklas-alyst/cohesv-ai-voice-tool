@@ -3,6 +3,10 @@ FROM public.ecr.aws/lambda/python:3.13
 # Set working directory
 WORKDIR ${LAMBDA_TASK_ROOT}
 
+# Copy and install shared library first
+COPY shared-lib/ ./shared-lib/
+RUN pip install --no-cache-dir ./shared-lib
+
 # Copy requirements file
 COPY webhook-handler/requirements.txt ./
 

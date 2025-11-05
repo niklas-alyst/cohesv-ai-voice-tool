@@ -12,11 +12,20 @@ WEBHOOK_HANDLER_REPO := $(ECR_REGISTRY)/ai-voice-tool/webhook-handler
 VOICE_PARSER_IMG := voice-parser
 WEBHOOK_HANDLER_IMG := webhook-handler
 
-.PHONY: all build deploy build-voice-parser deploy-voice-parser build-webhook-handler deploy-webhook-handler
+.PHONY: all build deploy build-voice-parser deploy-voice-parser build-webhook-handler deploy-webhook-handler install-shared-lib install-shared-lib-voice-parser install-shared-lib-webhook-handler
 
 all: build
 build: build-voice-parser build-webhook-handler
 deploy: deploy-voice-parser deploy-webhook-handler
+
+# --- Shared Library (Local Development) ---
+install-shared-lib-voice-parser:
+	cd voice-parser && uv add --editable ../shared-lib
+
+install-shared-lib-webhook-handler:
+	cd webhook-handler && uv add --editable ../shared-lib
+
+install-shared-lib: install-shared-lib-voice-parser install-shared-lib-webhook-handler
 
 # --- Voice Parser ---
 build-voice-parser:

@@ -15,6 +15,9 @@ from urllib.parse import parse_qs
 # Twilio's request validator
 from twilio.request_validator import RequestValidator
 
+# Customer lookup service from shared library
+from ai_voice_shared import CustomerLookupService
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
@@ -42,16 +45,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.error(f"{err_msg}, returning {status_code}")
         return {"statusCode": status_code, "body": json.dumps({"error": err_msg})}
 
-    authorized_numbers_str = os.getenv("AUTHORIZED_NUMBERS")
-    if not authorized_numbers_str:
-        err_msg = "ALLOWED_NUMBERS not configured"
-        status_code = 500 
+    # Initialize customer lookup service for phone number authorization
+    try:
+        customer_lookup_service = CustomerLookupService()
+    except Exception as e:
+        err_msg = f"Failed to initialize customer lookup service: {str(e)}"
+        status_code = 500
         logger.error(f"{err_msg}, returning {status_code}")
         return {"statusCode": status_code, "body": json.dumps({"error": err_msg})}
-
-    # Parse into list 
-    authorized_numbers = [num.replace(" ", "") for num in authorized_numbers_str.split(";")]
-    logger.info(f"Parsed {len(authorized_numbers)}")
 
     # Initialize the validator with your Auth Token
     validator = RequestValidator(twilio_auth_token)
@@ -94,14 +95,24 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     logger.info(f"POST parameters: {post_params}")
     logger.info(f"Signature: {signature}")
 
-    from_number = post_params["From"]
-    if from_number.startswith("whatsapp:"):
-        from_number = from_number.replace("whatsapp:", "")
-        if from_number not in authorized_numbers:
-            err_msg = f"Sender not authorized: {from_number}"
-            status_code = 401
-            logger.error(f"{err_msg}, returning {status_code}")
-            return {"statusCode": status_code, "body": json.dumps({"error": err_msg})}
+    # Check phone number authorization using customer lookup API
+    from_number = post_params.get("From", "")
+    if not from_number:
+        err_msg = "Missing 'From' field in request"
+        status_code = 400
+        logger.error(f"{err_msg}, returning {status_code}")
+        return {"statusCode": status_code, "body": json.dumps({"error": err_msg})}
+
+    try:
+        # Attempt to fetch customer metadata (this validates authorization)
+        customer_metadata = customer_lookup_service.fetch_customer_metadata(from_number)
+        logger.info(f"Phone number {from_number} authorized for customer: {customer_metadata.customer_id}, company: {customer_metadata.company_name}")
+    except Exception as e:
+        # If lookup fails (404, validation error, etc.), phone number is not authorized
+        err_msg = f"Phone number not authorized: {from_number}"
+        status_code = 401
+        logger.error(f"{err_msg} - Lookup failed with: {str(e)}")
+        return {"statusCode": status_code, "body": json.dumps({"error": err_msg})}
 
 
     # Validate the request
