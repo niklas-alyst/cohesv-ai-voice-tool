@@ -1,4 +1,4 @@
-"""Integration tests for CustomerLookupClient."""
+"""End-to-end tests for CustomerLookupClient against real deployed Lambda."""
 
 import pytest
 from ai_voice_shared.services.customer_lookup_client import CustomerLookupClient
@@ -21,8 +21,9 @@ def customer_lookup_client(customer_lookup_settings):
     return CustomerLookupClient(settings=customer_lookup_settings)
 
 
+@pytest.mark.e2e
 class TestCustomerLookupClient:
-    """Integration tests for CustomerLookupClient."""
+    """End-to-end tests for CustomerLookupClient against real deployed Lambda."""
 
     @pytest.mark.asyncio
     async def test_fetch_customer_metadata_with_valid_phone_number(

@@ -62,14 +62,13 @@ The shared library has its own test suite to ensure reliability of common code u
 ```
 tests/
 ├── unit/              # Unit tests (mocked dependencies)
-└── integration/       # Integration tests (test against real AWS services)
-    └── external_services/
-        ├── test_customer_lookup_client.py
-        └── test_s3_service.py
+└── e2e/               # E2E tests (test against real deployed AWS services)
+    ├── test_customer_lookup_client.py
+    └── test_s3_service.py
 ```
 
 - **Unit tests**: Test individual functions/classes with all external dependencies mocked
-- **Integration tests**: Test clients against real AWS services (S3, Lambda)
+- **E2E tests**: Test clients against real deployed AWS infrastructure (S3, Lambda)
 
 ### Running Tests
 
@@ -81,28 +80,28 @@ uv run pytest tests -v
 # Run unit tests only
 uv run pytest tests/unit -v
 
-# Run integration tests only (requires AWS credentials)
-uv run pytest tests/integration -v
+# Run e2e tests only (requires deployed AWS infrastructure)
+uv run pytest tests/e2e -v
 
 # Using markers
-uv run pytest -m unit              # Unit tests
-uv run pytest -m integration       # Integration tests
-uv run pytest -m "not integration" # Skip integration tests
+uv run pytest -m unit              # Unit tests only
+uv run pytest -m e2e               # E2E tests only
+uv run pytest -m "not e2e"         # Skip e2e tests
 ```
 
-### Integration Test Requirements
+### E2E Test Requirements
 
-Integration tests require:
-1. AWS credentials configured (via `AWS_PROFILE` or credentials file)
-2. `.env.test` file with test configuration:
+E2E tests require:
+1. Deployed AWS infrastructure (S3 bucket, customer-lookup Lambda)
+2. AWS credentials configured (via `AWS_PROFILE` or credentials file)
+3. `.env.test` file with test configuration:
    ```bash
    AWS_REGION=ap-southeast-2
    AWS_PROFILE=cohesv
-   S3_BUCKET_NAME=your-test-bucket
+   S3_BUCKET_NAME=cohesv-ai-voice-tool
    ```
-3. Deployed AWS resources (S3 bucket, customer-lookup Lambda)
 
-**Note**: Integration tests interact with real AWS services and may incur costs.
+**Note**: E2E tests interact with real AWS services and may incur costs. They should only be run after deploying infrastructure.
 
 ## Development
 
@@ -111,10 +110,10 @@ Integration tests require:
 When adding new shared functionality:
 
 1. Add the code to the appropriate module (`models.py`, `settings.py`, or `services/`)
-2. Write unit tests in `tests/unit/`
-3. If the code interacts with external services, add integration tests in `tests/integration/`
+2. Write unit tests in `tests/unit/` with mocked dependencies
+3. If needed, add e2e tests in `tests/e2e/` (requires deployed infrastructure)
 4. Run linting: `uv run ruff check`
-5. Run tests: `uv run pytest tests -v`
+5. Run unit tests: `uv run pytest tests/unit -v`
 
 ### Modifying Existing Code
 

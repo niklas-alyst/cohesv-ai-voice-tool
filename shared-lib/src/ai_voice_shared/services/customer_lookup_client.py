@@ -53,7 +53,7 @@ class CustomerLookupClient:
         try:
             # Use aioboto3 for async Lambda invocation
             session = aioboto3.Session()
-            async with await session.client('lambda', region_name=self.aws_region) as lambda_client:
+            async with session.client('lambda', region_name=self.aws_region) as lambda_client:
                 # Invoke Lambda function synchronously
                 response = await lambda_client.invoke(
                     FunctionName=self.lambda_function_name,

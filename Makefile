@@ -80,7 +80,7 @@ DATA_API_IMG := data-api-server
 	test-webhook-handler test-webhook-handler-unit test-webhook-handler-integration test-webhook-handler-e2e test-webhook-handler-pre-deploy \
 	test-customer-lookup test-customer-lookup-unit test-customer-lookup-integration test-customer-lookup-e2e test-customer-lookup-pre-deploy \
 	test-data-api test-data-api-unit test-data-api-integration test-data-api-e2e test-data-api-pre-deploy \
-	test-shared-lib
+	test-shared-lib test-shared-lib-unit test-shared-lib-e2e
 
 all: build
 lint: lint-voice-parser lint-webhook-handler lint-shared-lib lint-customer-lookup lint-data-api
@@ -89,8 +89,8 @@ push-images: push-voice-parser push-webhook-handler push-customer-lookup push-da
 deploy-infra: deploy-ecr deploy-shared deploy-customer-lookup deploy-voice-parser deploy-webhook-handler deploy-data-api
 
 # Testing shortcuts
-test-pre-deploy: test-voice-parser-pre-deploy test-webhook-handler-pre-deploy test-customer-lookup-pre-deploy test-data-api-pre-deploy test-shared-lib
-test-post-deploy: test-voice-parser-e2e test-webhook-handler-e2e test-customer-lookup-e2e test-data-api-e2e test-system-e2e
+test-pre-deploy: test-voice-parser-pre-deploy test-webhook-handler-pre-deploy test-customer-lookup-pre-deploy test-data-api-pre-deploy test-shared-lib-unit
+test-post-deploy: test-voice-parser-e2e test-webhook-handler-e2e test-customer-lookup-e2e test-data-api-e2e test-shared-lib-e2e test-system-e2e
 
 # --- ECR Login ---
 ecr-login:
@@ -234,13 +234,24 @@ test-data-api: test-data-api-pre-deploy
 	@echo "✓ Data API tests complete"
 
 # Shared Library Tests
-test-shared-lib:
-	@echo "Running shared-lib tests..."
-	@if [ -d shared-lib/tests ]; then \
-		cd shared-lib && uv run pytest tests -v; \
+test-shared-lib-unit:
+	@echo "Running shared-lib unit tests..."
+	@if [ -d shared-lib/tests/unit ]; then \
+		cd shared-lib && uv run pytest tests/unit -v; \
 	else \
-		echo "No tests found for shared-lib"; \
+		echo "No unit tests found for shared-lib"; \
 	fi
+
+test-shared-lib-e2e:
+	@echo "Running shared-lib e2e tests..."
+	@if [ -d shared-lib/tests/e2e ]; then \
+		cd shared-lib && uv run pytest tests/e2e -v; \
+	else \
+		echo "No e2e tests found for shared-lib"; \
+	fi
+
+test-shared-lib: test-shared-lib-unit
+	@echo "✓ Shared library tests complete"
 
 # System-wide E2E Tests
 test-system-e2e:

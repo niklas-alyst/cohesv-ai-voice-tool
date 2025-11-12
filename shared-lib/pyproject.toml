@@ -33,5 +33,5 @@ pythonpath = ["."]
 testpaths = ["tests"]
 markers = [
     "unit: Unit tests (isolated, mocked dependencies)",
-    "integration: Integration tests (test against real AWS services)",
+    "e2e: End-to-end tests (test against real deployed AWS infrastructure)",
 ]

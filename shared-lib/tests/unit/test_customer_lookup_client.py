@@ -10,9 +10,13 @@ from ai_voice_shared.settings import CustomerLookupSettings
 def mock_aioboto3_session():
     """Fixture to mock aioboto3.Session and its client method."""
     with patch("aioboto3.Session") as mock_session_class:
-        mock_session = AsyncMock()
+        mock_session = MagicMock()
         mock_client = AsyncMock()
-        mock_session.client.return_value.__aenter__.return_value = mock_client
+        # session.client() returns an async context manager
+        mock_context_manager = MagicMock()
+        mock_context_manager.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_context_manager.__aexit__ = AsyncMock(return_value=None)
+        mock_session.client.return_value = mock_context_manager
         mock_session_class.return_value = mock_session
         yield mock_session_class, mock_client
 

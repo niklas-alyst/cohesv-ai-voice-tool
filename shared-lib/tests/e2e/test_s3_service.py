@@ -1,4 +1,4 @@
-"""Integration tests for S3 service using real AWS S3."""
+"""End-to-end tests for S3 service against real AWS S3."""
 
 import os
 
@@ -19,10 +19,21 @@ def load_test_env():
 @pytest.fixture
 def test_s3_settings():
     """Create S3 settings using test environment variables"""
+    # Get required values from environment
+    aws_region = os.getenv("AWS_REGION")
+    s3_bucket_name = os.getenv("S3_BUCKET_NAME")
+    aws_profile = os.getenv("AWS_PROFILE")
+
+    # Validate required settings are present
+    if not aws_region:
+        pytest.skip("AWS_REGION not set in environment")
+    if not s3_bucket_name:
+        pytest.skip("S3_BUCKET_NAME not set in environment")
+
     return S3Settings(
-        aws_region=os.getenv("AWS_REGION"),
-        s3_bucket_name=os.getenv("S3_BUCKET_NAME"),
-        aws_profile=os.getenv("AWS_PROFILE"),
+        aws_region=aws_region,
+        s3_bucket_name=s3_bucket_name,
+        aws_profile=aws_profile,
     )
 
 
@@ -45,8 +56,9 @@ def test_text_data():
     return "This is test text content"
 
 
-class TestS3ServiceIntegration:
-    """Integration tests for S3 service using real AWS S3"""
+@pytest.mark.e2e
+class TestS3Service:
+    """End-to-end tests for S3 service against real AWS S3"""
 
     @pytest.mark.asyncio
     async def test_upload_download_delete_audio(self, s3_service, test_audio_data):
