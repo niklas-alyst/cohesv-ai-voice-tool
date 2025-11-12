@@ -1,6 +1,6 @@
-# CLAUDE.md
+# GEMINI.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Gemini when working with code in this repository.
 
 ## Development Guidelines
 - We use `uv` for this project, so all Python code should be run with `uv run ...`
