@@ -72,54 +72,35 @@ class StructuredDocumentModel(abc.ABC, BaseModel):
         pass
 
 class KnowledgeDocumentModel(StructuredDocumentModel): # TODO: replace fields with relevant structure
-    summary: str = Field(
-        description="A concise summary of the main point in the note"
+    title: str = Field(
+        description="A short human-readable title"
     )
-    job: str = Field(
-        description="The specific job this is related to"
+    summary: str = Field(
+        description="A concise summary of the key concepts"
     )
     context: str = Field(
-        description="The background to why these action items should be done."
-    )
-    action_items: List[str] = Field(
-        description="Specific tasks, next steps, and items to be added to be registered."
+        description="The background and context around what this knowledge is about and when it applies"
     )
 
     def format(self) -> str:
-        formatted_text = f"""*Summary:*
-{self.summary}
+        formatted_text = f"""*Title:*
+{self.title}
 
-*Job:*
-{self.job}
+*Summary:*
+{self.summary}
 
 *Context:*
 {self.context}
-
-*Action Items:*
-{chr(10).join(f'• {item}' for item in self.action_items)}
 """
         return formatted_text
 
     @classmethod 
     def get_system_message(cls) -> str:
-        return """You are assisting workers of a plumbing business to extract structured information from voice notes.
+        return """You are assisting workers of trades businesses to extract structured knowledge information from voice notes and other sources.
 
-While on-site, these workers may get information about a new job, understand tasks they need to do etc., or similar.
-The business has a job and project management software for managing all of this information
-but it's difficult to remember all of it and the workers don't have access to the computer while on site.
-
-This is where you come in. The workers will send a voice note to you, the text from this will be transcribed, and
-you should extract all the relevant information from the transcription. 
-so that it's easy for an assistant to enter it into the software.
-
-For example, this could be
-- remember to purchase material for a given job 
-- put this date into the calendar
-- check with builders or clients when they're ready
-
-Please extract summary, the job this is about, the context for the action items, and ALL action items mentioned.
-
-IMPORTANT: it's CRITICAL that you don't infer any items from the message. Only capture what is explicitly said!
+Experienced workers have a lot of knowlege about how to do different tasks, what works and what doesn't etc.
+Your job is to listen carefully to what they say or show and then document this in a concise summary.
+It's also important that you capture when and how this applies - i.e. the context of this `knowledge document`.
 """
 
 
