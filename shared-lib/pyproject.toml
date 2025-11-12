@@ -24,5 +24,14 @@ dev = [
     "boto3>=1.40.61",
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
+    "python-dotenv>=1.1.1",
     "ruff>=0.14.3",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = [
+    "unit: Unit tests (isolated, mocked dependencies)",
+    "integration: Integration tests (test against real AWS services)",
 ]

@@ -247,17 +247,86 @@ All artifacts are stored in S3 with company-based partitioning:
 
 ## Testing
 
-Each service has its own test suite using pytest:
+The project uses a **three-tier testing strategy**:
+
+### Test Structure
+
+Each service follows this directory structure:
+
+```
+{service}/tests/
+├── unit/              # Isolated unit tests (fast, no external dependencies)
+├── integration/       # Component integration tests (mocked external services)
+└── e2e/              # End-to-end tests (requires deployed infrastructure)
+```
+
+Plus system-wide tests at the root:
+
+```
+tests/e2e/            # Cross-service end-to-end tests
+```
+
+### Test Definitions
+
+- **Unit tests** (`tests/unit/`): Test individual functions/classes in complete isolation with all dependencies mocked
+- **Integration tests** (`tests/integration/`): Test service components working together with external services (AWS, Twilio, OpenAI) mocked but internal components real
+- **Service E2E tests** (`{service}/tests/e2e/`): Test service's external API boundary against real deployed infrastructure
+- **System E2E tests** (`tests/e2e/`): Test complete message processing pipeline across multiple services
+
+### Running Tests
 
 ```bash
-cd {service-directory}
-uv run pytest
+# Pre-deployment testing (no AWS required)
+make test-pre-deploy                    # All services: unit + integration
+make test-voice-parser-pre-deploy       # Single service: unit + integration
 
-# With coverage
-uv run pytest --cov
+# Per-service testing
+make test-voice-parser-unit             # Unit tests only
+make test-voice-parser-integration      # Integration tests only
+make test-voice-parser-e2e              # Service e2e tests (requires deployed infra)
 
-# Specific test file
-uv run pytest tests/test_handler.py
+# Post-deployment verification (requires AWS)
+make test-post-deploy                   # All service e2e + system e2e
+make test-system-e2e                    # System-wide e2e only
+
+# Direct pytest usage
+cd voice-parser
+uv run pytest tests/unit -v            # Unit tests
+uv run pytest tests/integration -v     # Integration tests
+uv run pytest tests/e2e -v             # E2E tests
+```
+
+### When to Run Each Test Level
+
+1. **During development**: Run unit tests frequently
+2. **Before committing**: Run `make test-pre-deploy` (unit + integration)
+3. **After deploying to dev**: Run `make test-post-deploy` (all e2e tests)
+4. **Before deploying to prod**: Verify dev deployment passed all post-deploy tests
+
+### Test Markers
+
+All services use pytest markers for test categorization:
+
+```python
+@pytest.mark.unit
+def test_something_isolated():
+    ...
+
+@pytest.mark.integration
+def test_components_together():
+    ...
+
+@pytest.mark.e2e
+def test_deployed_service():
+    ...
+```
+
+Run specific test types:
+```bash
+uv run pytest -m unit           # Unit tests only
+uv run pytest -m integration    # Integration tests only
+uv run pytest -m e2e            # E2E tests only
+uv run pytest -m "not e2e"      # All except e2e
 ```
 
 ## Common Development Tasks

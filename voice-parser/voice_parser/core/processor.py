@@ -20,6 +20,10 @@ from voice_parser.services.llm import LLMClient, MessageIntent
 from ai_voice_shared import CustomerLookupClient
 
 
+class ProcessorException(Exception):
+    """Custom exception for errors during message processing."""
+    pass
+
 
 logger = logging.getLogger(__name__)
 

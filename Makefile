@@ -1,12 +1,29 @@
 # AI Voice Tool - Makefile
 #
-# This Makefile handles Docker image building/pushing and infrastructure deployment.
+# This Makefile handles testing, Docker image building/pushing, and infrastructure deployment.
 #
 # Common workflows (recommended order):
 #
+#   TESTING:
+#     make test-pre-deploy          # Run all unit + integration tests (no AWS required)
+#     make test-post-deploy         # Run all service e2e + system e2e tests (requires AWS)
+#     make test-system-e2e          # Run system-wide end-to-end tests only
+#
+#     Per-service testing:
+#     make test-voice-parser-unit            # Unit tests only
+#     make test-voice-parser-integration     # Integration tests only
+#     make test-voice-parser-e2e             # Service e2e tests only
+#     make test-voice-parser-pre-deploy      # Unit + integration (pre-deploy gate)
+#
 #   QUALITY GATES:
 #     make lint                     # Run linting on all services
-#     make test                     # Run all tests
+#
+#   DEPLOYMENT WORKFLOW:
+#     1. make lint                  # Check code quality
+#     2. make test-pre-deploy       # Run unit + integration tests
+#     3. make deploy-infra ENV=dev  # Deploy to dev environment
+#     4. make test-post-deploy      # Run all e2e tests (service + system)
+#     5. make deploy-infra ENV=prod # Deploy to production
 #
 #   SECRETS MANAGEMENT:
 #     make secrets-create ENV=dev   # Create secrets in AWS Secrets Manager
@@ -58,14 +75,22 @@ DATA_API_IMG := data-api-server
 	deploy-infra deploy-ecr deploy-shared \
 	install-shared-lib install-shared-lib-voice-parser install-shared-lib-webhook-handler \
 	lint lint-voice-parser lint-webhook-handler lint-shared-lib lint-customer-lookup lint-data-api \
-	test test-voice-parser test-webhook-handler test-shared-lib test-customer-lookup test-data-api
+	test test-pre-deploy test-post-deploy test-system-e2e \
+	test-voice-parser test-voice-parser-unit test-voice-parser-integration test-voice-parser-e2e test-voice-parser-pre-deploy \
+	test-webhook-handler test-webhook-handler-unit test-webhook-handler-integration test-webhook-handler-e2e test-webhook-handler-pre-deploy \
+	test-customer-lookup test-customer-lookup-unit test-customer-lookup-integration test-customer-lookup-e2e test-customer-lookup-pre-deploy \
+	test-data-api test-data-api-unit test-data-api-integration test-data-api-e2e test-data-api-pre-deploy \
+	test-shared-lib
 
 all: build
 lint: lint-voice-parser lint-webhook-handler lint-shared-lib lint-customer-lookup lint-data-api
-test: test-voice-parser test-webhook-handler test-shared-lib test-customer-lookup test-data-api
 build: build-voice-parser build-webhook-handler build-customer-lookup build-data-api
 push-images: push-voice-parser push-webhook-handler push-customer-lookup push-data-api
 deploy-infra: deploy-ecr deploy-shared deploy-customer-lookup deploy-voice-parser deploy-webhook-handler deploy-data-api
+
+# Testing shortcuts
+test-pre-deploy: test-voice-parser-pre-deploy test-webhook-handler-pre-deploy test-customer-lookup-pre-deploy test-data-api-pre-deploy test-shared-lib
+test-post-deploy: test-voice-parser-e2e test-webhook-handler-e2e test-customer-lookup-e2e test-data-api-e2e test-system-e2e
 
 # --- ECR Login ---
 ecr-login:
@@ -99,20 +124,129 @@ lint-data-api:
 	cd data-api-server && uv run ruff check --fix
 
 # --- Testing ---
-test-voice-parser:
-	cd voice-parser && uv run pytest tests
+# Testing strategy:
+#   - Pre-deploy: Run unit + integration tests (no AWS infrastructure required)
+#   - Post-deploy: Run e2e tests (requires deployed infrastructure)
+#   - System E2E: Run cross-service end-to-end tests from root tests/e2e
 
-test-webhook-handler:
-	cd webhook-handler && uv run pytest tests
+# Voice Parser Tests
+test-voice-parser-unit:
+	@echo "Running voice-parser unit tests..."
+	cd voice-parser && uv run pytest tests/unit -v
 
+test-voice-parser-integration:
+	@echo "Running voice-parser integration tests..."
+	cd voice-parser && uv run pytest tests/integration -v
+
+test-voice-parser-e2e:
+	@echo "Running voice-parser e2e tests..."
+	@if [ -d voice-parser/tests/e2e ]; then \
+		cd voice-parser && uv run pytest tests/e2e -v; \
+	else \
+		echo "No e2e tests found for voice-parser"; \
+	fi
+
+test-voice-parser-pre-deploy: test-voice-parser-unit test-voice-parser-integration
+	@echo "✓ Voice parser pre-deployment tests passed"
+
+test-voice-parser: test-voice-parser-pre-deploy
+	@echo "✓ Voice parser tests complete"
+
+# Webhook Handler Tests
+test-webhook-handler-unit:
+	@echo "Running webhook-handler unit tests..."
+	cd webhook-handler && uv run pytest tests/unit -v
+
+test-webhook-handler-integration:
+	@echo "Running webhook-handler integration tests..."
+	@if [ -d webhook-handler/tests/integration ]; then \
+		cd webhook-handler && uv run pytest tests/integration -v; \
+	else \
+		echo "No integration tests found for webhook-handler"; \
+	fi
+
+test-webhook-handler-e2e:
+	@echo "Running webhook-handler e2e tests..."
+	cd webhook-handler && uv run pytest tests/e2e -v
+
+test-webhook-handler-pre-deploy: test-webhook-handler-unit test-webhook-handler-integration
+	@echo "✓ Webhook handler pre-deployment tests passed"
+
+test-webhook-handler: test-webhook-handler-pre-deploy
+	@echo "✓ Webhook handler tests complete"
+
+# Customer Lookup Tests
+test-customer-lookup-unit:
+	@echo "Running customer-lookup unit tests..."
+	@if [ -d customer-lookup-server/tests/unit ]; then \
+		cd customer-lookup-server && uv run pytest tests/unit -v; \
+	else \
+		echo "No unit tests found for customer-lookup-server"; \
+	fi
+
+test-customer-lookup-integration:
+	@echo "Running customer-lookup integration tests..."
+	@if [ -d customer-lookup-server/tests/integration ]; then \
+		cd customer-lookup-server && uv run pytest tests/integration -v; \
+	else \
+		echo "No integration tests found for customer-lookup-server"; \
+	fi
+
+test-customer-lookup-e2e:
+	@echo "Running customer-lookup e2e tests..."
+	@if [ -d customer-lookup-server/tests/e2e ]; then \
+		cd customer-lookup-server && uv run pytest tests/e2e -v; \
+	else \
+		echo "No e2e tests found for customer-lookup-server"; \
+	fi
+
+test-customer-lookup-pre-deploy: test-customer-lookup-unit test-customer-lookup-integration
+	@echo "✓ Customer lookup pre-deployment tests passed"
+
+test-customer-lookup: test-customer-lookup-pre-deploy
+	@echo "✓ Customer lookup tests complete"
+
+# Data API Tests
+test-data-api-unit:
+	@echo "Running data-api unit tests..."
+	cd data-api-server && uv run pytest tests/unit -v
+
+test-data-api-integration:
+	@echo "Running data-api integration tests..."
+	@if [ -d data-api-server/tests/integration ]; then \
+		cd data-api-server && uv run pytest tests/integration -v; \
+	else \
+		echo "No integration tests found for data-api-server"; \
+	fi
+
+test-data-api-e2e:
+	@echo "Running data-api e2e tests..."
+	@if [ -d data-api-server/tests/e2e ]; then \
+		cd data-api-server && uv run pytest tests/e2e -v; \
+	else \
+		echo "No e2e tests found for data-api-server"; \
+	fi
+
+test-data-api-pre-deploy: test-data-api-unit test-data-api-integration
+	@echo "✓ Data API pre-deployment tests passed"
+
+test-data-api: test-data-api-pre-deploy
+	@echo "✓ Data API tests complete"
+
+# Shared Library Tests
 test-shared-lib:
-	cd shared-lib && uv run pytest tests
+	@echo "Running shared-lib tests..."
+	@if [ -d shared-lib/tests ]; then \
+		cd shared-lib && uv run pytest tests -v; \
+	else \
+		echo "No tests found for shared-lib"; \
+	fi
 
-test-customer-lookup:
-	cd customer-lookup-server && uv run pytest tests
-
-test-data-api:
-	cd data-api-server && uv run pytest tests
+# System-wide E2E Tests
+test-system-e2e:
+	@echo "Running system-wide end-to-end tests..."
+	@echo "⚠️  This will test the complete pipeline and may incur AWS costs"
+	uv run pytest tests/e2e -v -s
 
 
 # --- Secrets Management ---

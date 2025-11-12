@@ -22,9 +22,6 @@ from ai_voice_shared import CustomerLookupClient, TwilioWebhookPayload
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# Initialize SQS client
-sqs = boto3.client("sqs")
-
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Handle webhook event notifications from Twilio.
@@ -36,15 +33,18 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     if not twilio_auth_token:
         err_msg = "TWILIO_AUTH_TOKEN not configured"
-        status_code = 500 
+        status_code = 500
         logger.error(f"{err_msg}, returning {status_code}")
         return {"statusCode": status_code, "body": json.dumps({"error": err_msg})}
-    
+
     if not sqs_queue_url:
         err_msg = "SQS_QUEUE_URL not configured"
-        status_code = 500 
+        status_code = 500
         logger.error(f"{err_msg}, returning {status_code}")
         return {"statusCode": status_code, "body": json.dumps({"error": err_msg})}
+
+    # Initialize SQS client
+    sqs = boto3.client("sqs")
 
     # Initialize customer lookup service for phone number authorization
     try:
@@ -144,7 +144,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         sqs.send_message(
             QueueUrl=sqs_queue_url,
             # We send the dictionary as a JSON string for easy processing later
-            MessageBody=message_body, 
+            MessageBody=message_body,
             MessageAttributes={
                 "Source": {
                     "StringValue": "TwilioWhatsAppWebhook",

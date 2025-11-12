@@ -52,3 +52,74 @@ from ai_voice_shared import CustomerLookupClient, TwilioWebhookPayload
 # Example: In voice-parser/voice_parser/core/processor.py
 from ai_voice_shared.services.s3_service import S3Service
 ```
+
+## Testing
+
+The shared library has its own test suite to ensure reliability of common code used across all services.
+
+### Test Structure
+
+```
+tests/
+├── unit/              # Unit tests (mocked dependencies)
+└── integration/       # Integration tests (test against real AWS services)
+    └── external_services/
+        ├── test_customer_lookup_client.py
+        └── test_s3_service.py
+```
+
+- **Unit tests**: Test individual functions/classes with all external dependencies mocked
+- **Integration tests**: Test clients against real AWS services (S3, Lambda)
+
+### Running Tests
+
+```bash
+# Run all tests
+cd shared-lib
+uv run pytest tests -v
+
+# Run unit tests only
+uv run pytest tests/unit -v
+
+# Run integration tests only (requires AWS credentials)
+uv run pytest tests/integration -v
+
+# Using markers
+uv run pytest -m unit              # Unit tests
+uv run pytest -m integration       # Integration tests
+uv run pytest -m "not integration" # Skip integration tests
+```
+
+### Integration Test Requirements
+
+Integration tests require:
+1. AWS credentials configured (via `AWS_PROFILE` or credentials file)
+2. `.env.test` file with test configuration:
+   ```bash
+   AWS_REGION=ap-southeast-2
+   AWS_PROFILE=cohesv
+   S3_BUCKET_NAME=your-test-bucket
+   ```
+3. Deployed AWS resources (S3 bucket, customer-lookup Lambda)
+
+**Note**: Integration tests interact with real AWS services and may incur costs.
+
+## Development
+
+### Adding New Shared Code
+
+When adding new shared functionality:
+
+1. Add the code to the appropriate module (`models.py`, `settings.py`, or `services/`)
+2. Write unit tests in `tests/unit/`
+3. If the code interacts with external services, add integration tests in `tests/integration/`
+4. Run linting: `uv run ruff check`
+5. Run tests: `uv run pytest tests -v`
+
+### Modifying Existing Code
+
+When modifying shared library code:
+
+1. Update the relevant tests
+2. Run the full test suite to ensure no services are broken
+3. Test in dependent services before committing

@@ -14,3 +14,12 @@ dev = [
     "pytest>=8.4.2",
     "ruff>=0.14.3",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = [
+    "unit: Unit tests (isolated, mocked dependencies)",
+    "integration: Integration tests (mocked external services, real internal logic)",
+    "e2e: End-to-end tests (require deployed infrastructure)",
+]

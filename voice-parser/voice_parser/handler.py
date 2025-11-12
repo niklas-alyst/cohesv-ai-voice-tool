@@ -14,7 +14,7 @@ import logging
 from typing import Any, Dict
 
 from ai_voice_shared import TwilioWebhookPayload
-from voice_parser.core.processor import process_message
+from voice_parser.core.processor import process_message, ProcessorException
 
 # Configure logging
 logger = logging.getLogger()

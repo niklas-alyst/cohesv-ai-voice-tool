@@ -215,12 +215,109 @@ Each microservice is thoroughly documented:
 
 ## Testing
 
-Each service has its own test suite:
+The project uses a three-tier testing strategy:
+
+### Test Structure
+
+```
+tests/
+├── unit/              # Isolated unit tests (fast, no external dependencies)
+├── integration/       # Component integration tests (mocked external services)
+└── e2e/              # End-to-end tests (requires deployed infrastructure)
+```
+
+- **Unit tests**: Test individual functions/classes in isolation with all dependencies mocked
+- **Integration tests**: Test service components working together with external services mocked
+- **E2E tests**: Test against real deployed AWS infrastructure
+
+### Running Tests
 
 ```bash
-cd {service-directory}
-uv run pytest
+# Pre-deployment: Run all unit + integration tests (no AWS required)
+make test-pre-deploy
+
+# Post-deployment: Run all service e2e + system-wide e2e tests
+make test-post-deploy
+
+# Per-service testing
+make test-voice-parser-unit            # Unit tests only
+make test-voice-parser-integration     # Integration tests only
+make test-voice-parser-e2e             # Service e2e tests
+make test-voice-parser-pre-deploy      # Unit + integration
+
+# System-wide e2e test (full pipeline)
+make test-system-e2e
 ```
+
+See individual service README files for service-specific test details.
+
+## Deployment Workflow
+
+Follow this workflow to deploy to dev and then promote to production:
+
+### 1. Pre-Deployment Quality Gates
+
+```bash
+# Run linting
+make lint
+
+# Run all pre-deployment tests (unit + integration)
+make test-pre-deploy
+```
+
+These tests run locally without requiring AWS infrastructure.
+
+### 2. Deploy to Dev Environment
+
+```bash
+# Deploy all infrastructure to dev
+make deploy-infra ENV=dev
+
+# Or deploy individual components
+make deploy-ecr ENV=dev
+make deploy-shared ENV=dev
+make deploy-customer-lookup ENV=dev
+make deploy-voice-parser ENV=dev
+make deploy-webhook-handler ENV=dev
+make deploy-data-api ENV=dev
+```
+
+### 3. Post-Deployment Verification
+
+```bash
+# Run all e2e tests (service-level + system-wide)
+make test-post-deploy
+```
+
+This runs:
+- Service-level e2e tests (testing each service's API boundary)
+- System-wide e2e tests (testing the complete message processing pipeline)
+
+**Note**: System-wide e2e tests may incur AWS costs (~$0.10-0.20 per run) due to OpenAI API usage.
+
+### 4. Deploy to Production
+
+Once dev deployment is verified:
+
+```bash
+# Deploy to production
+make deploy-infra ENV=prod
+```
+
+### Deployment Prerequisites
+
+Before deploying, ensure:
+
+1. **Secrets are created** in AWS Secrets Manager:
+   ```bash
+   make secrets-create ENV=dev
+   ```
+
+2. **Parameter files are configured** in `infrastructure/parameters/{env}.json`
+
+3. **AWS credentials are configured** with appropriate permissions
+
+See [infrastructure/README.md](infrastructure/README.md) for detailed deployment instructions.
 
 ## License
 
