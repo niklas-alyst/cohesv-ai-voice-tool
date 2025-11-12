@@ -909,7 +909,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "ai-voice-shared", editable = "../shared-lib" },
-    { name = "boto3", specifier = ">=1.40.52" },
+    { name = "boto3", specifier = ">=1.40.61" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "twilio", specifier = ">=9.8.4" },
 ]

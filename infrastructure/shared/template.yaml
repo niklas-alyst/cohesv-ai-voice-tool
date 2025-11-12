@@ -61,7 +61,7 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub '${EnvironmentName}-voice-parser-queue'
-      VisibilityTimeout: 300
+      VisibilityTimeout: 960
       MessageRetentionPeriod: 345600
       KmsMasterKeyId: alias/aws/sqs
       RedrivePolicy:
