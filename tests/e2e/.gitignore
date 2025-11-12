@@ -1,0 +1,12 @@
+# Environment configuration
+.env.e2e
+
+# Pytest cache
+.pytest_cache/
+__pycache__/
+*.pyc
+
+# Test reports
+.coverage
+htmlcov/
+*.log

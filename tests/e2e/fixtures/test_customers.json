@@ -1,0 +1,10 @@
+{
+  "customers": [
+    {
+      "customer_id": "test-customer-e2e",
+      "phone_number": "whatsapp:+15555555555",
+      "company_id": "test-company-e2e",
+      "company_name": "Test Company E2E"
+    }
+  ]
+}
