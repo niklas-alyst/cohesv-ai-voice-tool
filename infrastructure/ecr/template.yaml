@@ -191,6 +191,52 @@ Resources:
         - Key: Service
           Value: data-api
 
+  DataApiAuthorizerRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub 'ai-voice-tool/${EnvironmentName}/data-api-authorizer'
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 5 tagged images",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "tagPrefixList": ["latest", "v"],
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 5
+                },
+                "action": {
+                  "type": "expire"
+                }
+              },
+              {
+                "rulePriority": 2,
+                "description": "Expire untagged images older than 7 days",
+                "selection": {
+                  "tagStatus": "untagged",
+                  "countType": "sinceImagePushed",
+                  "countUnit": "days",
+                  "countNumber": 7
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Service
+          Value: data-api-authorizer
+
 Outputs:
   VoiceParserRepositoryUri:
     Description: URI of the voice parser ECR repository.
@@ -239,3 +285,15 @@ Outputs:
     Value: !GetAtt DataApiRepository.Arn
     Export:
       Name: !Sub '${EnvironmentName}-DataApiRepositoryArn'
+
+  DataApiAuthorizerRepositoryUri:
+    Description: URI of the data API authorizer ECR repository.
+    Value: !GetAtt DataApiAuthorizerRepository.RepositoryUri
+    Export:
+      Name: !Sub '${EnvironmentName}-DataApiAuthorizerRepositoryUri'
+
+  DataApiAuthorizerRepositoryArn:
+    Description: ARN of the data API authorizer ECR repository.
+    Value: !GetAtt DataApiAuthorizerRepository.Arn
+    Export:
+      Name: !Sub '${EnvironmentName}-DataApiAuthorizerRepositoryArn'

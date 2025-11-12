@@ -35,11 +35,30 @@ Files are organized in S3 with the following structure:
 
 ### Authentication
 
-All endpoints require an API key passed as a header:
+All endpoints (except `/health`) require an API key passed as a header:
 
 ```
 x-api-key: YOUR_SECRET_API_KEY
 ```
+
+**How it works:**
+- API Gateway validates the API key using a Lambda authorizer before requests reach the data-api-server
+- The authorizer validates keys against a secret stored in AWS Secrets Manager
+- Authorization decisions are cached for 5 minutes for performance
+- Invalid or missing keys receive a 403 Forbidden response from API Gateway
+
+**Retrieving the API key:**
+```bash
+# For dev environment
+aws secretsmanager get-secret-value \
+  --secret-id dev/ai-voice-tool/data-api-key \
+  --region ap-southeast-2 \
+  --profile cohesv \
+  --query 'SecretString' \
+  --output text | jq -r '.api_key'
+```
+
+See [data-api-authorizer/README.md](../data-api-authorizer/README.md) for more details on authentication.
 
 ### 1. List Files
 

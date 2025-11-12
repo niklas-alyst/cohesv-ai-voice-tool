@@ -111,6 +111,98 @@ Resources:
       StageName: !Ref EnvironmentName
       AutoDeploy: true
 
+  # API Key for Data API (auto-generated secure string)
+  DataApiKey:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${EnvironmentName}/ai-voice-tool/data-api-key'
+      Description: !Sub 'API Key for Data API access in ${EnvironmentName} environment'
+      GenerateSecretString:
+        SecretStringTemplate: '{}'
+        GenerateStringKey: api_key
+        PasswordLength: 48
+        ExcludeCharacters: '"@/\\'
+        RequireEachIncludedType: true
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Service
+          Value: ai-voice-tool
+
+  # CloudWatch Logs for authorizer
+  DataApiAuthorizerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${EnvironmentName}-data-api-authorizer'
+      RetentionInDays: 14
+
+  # IAM Role for the authorizer Lambda
+  DataApiAuthorizerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${EnvironmentName}-data-api-authorizer-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ReadDataApiKey
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Ref DataApiKey
+
+  # Lambda function for API key authorization
+  DataApiAuthorizerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${EnvironmentName}-data-api-authorizer'
+      PackageType: Image
+      Code:
+        ImageUri: !Sub '404293832854.dkr.ecr.ap-southeast-2.amazonaws.com/ai-voice-tool/${EnvironmentName}/data-api-authorizer:latest'
+      Role: !GetAtt DataApiAuthorizerRole.Arn
+      Timeout: 10
+      MemorySize: 256
+      Environment:
+        Variables:
+          API_KEY_SECRET_ARN: !Ref DataApiKey
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+    DependsOn:
+      - DataApiAuthorizerLogGroup
+
+  # Lambda authorizer for HTTP API
+  DataApiAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      Name: !Sub '${EnvironmentName}-data-api-key-authorizer'
+      ApiId: !Ref DataHttpApi
+      AuthorizerType: REQUEST
+      AuthorizerUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DataApiAuthorizerFunction.Arn}/invocations'
+      AuthorizerPayloadFormatVersion: '2.0'
+      EnableSimpleResponses: true
+      IdentitySource:
+        - '$request.header.x-api-key'
+      AuthorizerResultTtlInSeconds: 300
+
+  # Permission for API Gateway to invoke the authorizer
+  DataApiAuthorizerInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref DataApiAuthorizerFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${DataHttpApi}/authorizers/${DataApiAuthorizer}'
+
 Outputs:
   VoiceToolBucketName:
     Description: Name of the shared S3 bucket for customer and transcription data.
@@ -171,3 +263,15 @@ Outputs:
     Value: !Ref EnvironmentName
     Export:
       Name: !Sub '${EnvironmentName}-HttpApiStageName'
+
+  DataApiKeySecretArn:
+    Description: ARN of the Data API key secret in Secrets Manager.
+    Value: !Ref DataApiKey
+    Export:
+      Name: !Sub '${EnvironmentName}-DataApiKeySecretArn'
+
+  DataApiAuthorizerId:
+    Description: ID of the Data API authorizer.
+    Value: !Ref DataApiAuthorizer
+    Export:
+      Name: !Sub '${EnvironmentName}-DataApiAuthorizerId'

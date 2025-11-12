@@ -19,11 +19,18 @@
 #     make lint                     # Run linting on all services
 #
 #   DEPLOYMENT WORKFLOW:
-#     1. make lint                  # Check code quality
-#     2. make test-pre-deploy       # Run unit + integration tests
-#     3. make deploy-infra ENV=dev  # Deploy to dev environment
-#     4. make test-post-deploy      # Run all e2e tests (service + system)
-#     5. make deploy-infra ENV=prod # Deploy to production
+#     1. make lint                           # Check code quality
+#     2. make test-pre-deploy                # Run unit + integration tests
+#     3. make deploy-ecr ENV=dev             # Deploy ECR repositories
+#     4. make push-data-api-authorizer ENV=dev  # Build and push authorizer (REQUIRED before shared stack)
+#     5. make deploy-shared ENV=dev          # Deploy shared infrastructure
+#     6. make push-images ENV=dev            # Build and push remaining service images
+#     7. ./infrastructure/deploy.sh dev customer-lookup  # Deploy remaining Lambdas
+#     8. ./infrastructure/deploy.sh dev voice-parser
+#     9. ./infrastructure/deploy.sh dev webhook-handler
+#    10. ./infrastructure/deploy.sh dev data-api
+#    11. make test-post-deploy               # Run all e2e tests (service + system)
+#    12. Repeat for prod environment
 #
 #   SECRETS MANAGEMENT:
 #     make secrets-create ENV=dev   # Create secrets in AWS Secrets Manager
@@ -60,12 +67,14 @@ VOICE_PARSER_REPO := $(ECR_REGISTRY)/ai-voice-tool/$(ENV)/voice-parser
 WEBHOOK_HANDLER_REPO := $(ECR_REGISTRY)/ai-voice-tool/$(ENV)/webhook-handler
 CUSTOMER_LOOKUP_REPO := $(ECR_REGISTRY)/ai-voice-tool/$(ENV)/customer-lookup
 DATA_API_REPO := $(ECR_REGISTRY)/ai-voice-tool/$(ENV)/data-api
+DATA_API_AUTHORIZER_REPO := $(ECR_REGISTRY)/ai-voice-tool/$(ENV)/data-api-authorizer
 
 # Image Names
 VOICE_PARSER_IMG := voice-parser
 WEBHOOK_HANDLER_IMG := webhook-handler
 CUSTOMER_LOOKUP_IMG := customer-lookup-server
 DATA_API_IMG := data-api-server
+DATA_API_AUTHORIZER_IMG := data-api-authorizer
 
 # Services that depend on shared-lib and need dual requirements files
 SHARED_LIB_SERVICES := voice-parser data-api-server webhook-handler
@@ -76,26 +85,28 @@ UV_CACHE_DIR := $(CURDIR)/.uv-cache
 	build-webhook-handler push-webhook-handler deploy-webhook-handler \
 	build-customer-lookup push-customer-lookup deploy-customer-lookup \
 	build-data-api push-data-api deploy-data-api \
+	build-data-api-authorizer push-data-api-authorizer \
 	deploy-infra deploy-ecr deploy-shared \
 	requirements-sync $(addprefix requirements-sync-,$(SHARED_LIB_SERVICES)) \
 	install-shared-lib install-shared-lib-voice-parser install-shared-lib-webhook-handler \
-	lint lint-voice-parser lint-webhook-handler lint-shared-lib lint-customer-lookup lint-data-api \
+	lint lint-voice-parser lint-webhook-handler lint-shared-lib lint-customer-lookup lint-data-api lint-data-api-authorizer \
 	test test-pre-deploy test-post-deploy test-system-e2e \
 	test-voice-parser test-voice-parser-unit test-voice-parser-integration test-voice-parser-e2e test-voice-parser-pre-deploy \
 	test-webhook-handler test-webhook-handler-unit test-webhook-handler-integration test-webhook-handler-e2e test-webhook-handler-pre-deploy \
 	test-customer-lookup test-customer-lookup-unit test-customer-lookup-integration test-customer-lookup-e2e test-customer-lookup-pre-deploy \
 	test-data-api test-data-api-unit test-data-api-integration test-data-api-e2e test-data-api-pre-deploy \
+	test-data-api-authorizer test-data-api-authorizer-unit test-data-api-authorizer-e2e test-data-api-authorizer-pre-deploy \
 	test-shared-lib test-shared-lib-unit test-shared-lib-e2e
 
 all: build
-lint: lint-voice-parser lint-webhook-handler lint-shared-lib lint-customer-lookup lint-data-api
-build: build-voice-parser build-webhook-handler build-customer-lookup build-data-api
-push-images: push-voice-parser push-webhook-handler push-customer-lookup push-data-api
+lint: lint-voice-parser lint-webhook-handler lint-shared-lib lint-customer-lookup lint-data-api lint-data-api-authorizer
+build: build-voice-parser build-webhook-handler build-customer-lookup build-data-api build-data-api-authorizer
+push-images: push-voice-parser push-webhook-handler push-customer-lookup push-data-api push-data-api-authorizer
 deploy-infra: deploy-ecr deploy-shared deploy-customer-lookup deploy-voice-parser deploy-webhook-handler deploy-data-api
 
 # Testing shortcuts
-test-pre-deploy: test-voice-parser-pre-deploy test-webhook-handler-pre-deploy test-customer-lookup-pre-deploy test-data-api-pre-deploy test-shared-lib-unit
-test-post-deploy: test-voice-parser-e2e test-webhook-handler-e2e test-customer-lookup-e2e test-data-api-e2e test-shared-lib-e2e test-system-e2e
+test-pre-deploy: test-voice-parser-pre-deploy test-webhook-handler-pre-deploy test-customer-lookup-pre-deploy test-data-api-pre-deploy test-data-api-authorizer-pre-deploy test-shared-lib-unit
+test-post-deploy: test-voice-parser-e2e test-webhook-handler-e2e test-customer-lookup-e2e test-data-api-e2e test-data-api-authorizer-e2e test-shared-lib-e2e test-system-e2e
 
 # --- ECR Login ---
 ecr-login:
@@ -142,6 +153,9 @@ lint-customer-lookup:
 
 lint-data-api:
 	cd data-api-server && uv run ruff check --fix
+
+lint-data-api-authorizer:
+	cd data-api-authorizer && uv run ruff check --fix
 
 # --- Testing ---
 # Testing strategy:
@@ -252,6 +266,29 @@ test-data-api-pre-deploy: test-data-api-unit test-data-api-integration
 
 test-data-api: test-data-api-pre-deploy
 	@echo "✓ Data API tests complete"
+
+# Data API Authorizer Tests
+test-data-api-authorizer-unit:
+	@echo "Running data-api-authorizer unit tests..."
+	@if [ -d data-api-authorizer/tests/unit ]; then \
+		cd data-api-authorizer && uv run pytest tests/unit -v; \
+	else \
+		echo "No unit tests found for data-api-authorizer"; \
+	fi
+
+test-data-api-authorizer-e2e:
+	@echo "Running data-api-authorizer e2e tests..."
+	@if [ -d data-api-authorizer/tests/e2e ]; then \
+		cd data-api-authorizer && AWS_PROFILE=$(PROFILE) uv run pytest tests/e2e -v; \
+	else \
+		echo "No e2e tests found for data-api-authorizer"; \
+	fi
+
+test-data-api-authorizer-pre-deploy: test-data-api-authorizer-unit
+	@echo "✓ Data API authorizer pre-deployment tests passed"
+
+test-data-api-authorizer: test-data-api-authorizer-pre-deploy
+	@echo "✓ Data API authorizer tests complete"
 
 # Shared Library Tests
 test-shared-lib-unit:
@@ -587,6 +624,17 @@ deploy-data-api: push-data-api
 	@echo "Deploying data-api Lambda via CloudFormation..."
 	./infrastructure/deploy.sh $(ENV) data-api
 	@echo "✓ Data API deployed successfully"
+
+# --- Data API Authorizer ---
+build-data-api-authorizer:
+	@echo "Building data-api-authorizer for environment: $(ENV)"
+	docker build --file data-api-authorizer/Dockerfile -t $(DATA_API_AUTHORIZER_IMG):$(TAG) .
+	docker tag $(DATA_API_AUTHORIZER_IMG):$(TAG) $(DATA_API_AUTHORIZER_REPO):$(TAG)
+
+push-data-api-authorizer: ecr-login build-data-api-authorizer
+	@echo "Pushing data-api-authorizer to $(DATA_API_AUTHORIZER_REPO):$(TAG)"
+	docker push $(DATA_API_AUTHORIZER_REPO):$(TAG)
+	@echo "✓ Data API authorizer image pushed successfully"
 
 # --- Infrastructure Deployment (Non-Lambda) ---
 deploy-ecr:

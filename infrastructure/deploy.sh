@@ -165,6 +165,22 @@ deploy_ecr() {
 
 # Deploy shared infrastructure
 deploy_shared() {
+    # Check if data-api-authorizer image exists in ECR (required by shared stack)
+    local repo_uri="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/ai-voice-tool/${ENV}/data-api-authorizer:latest"
+
+    echo -e "${YELLOW}Checking if data-api-authorizer image exists in ECR...${NC}"
+    if ! aws ecr describe-images \
+        --region "$REGION" \
+        --profile "$PROFILE" \
+        --repository-name "ai-voice-tool/${ENV}/data-api-authorizer" \
+        --image-ids imageTag=latest \
+        >/dev/null 2>&1; then
+        echo -e "${RED}Error: data-api-authorizer image not found in ECR${NC}"
+        echo "Run: make push-data-api-authorizer ENV=${ENV}"
+        exit 1
+    fi
+    echo -e "${GREEN}✓ Authorizer image found${NC}"
+
     deploy_stack "ai-voice-shared" "infrastructure/shared/template.yaml"
 }
 
@@ -227,6 +243,9 @@ deploy_data_api() {
 # Deploy all stacks in order
 deploy_all() {
     echo -e "${YELLOW}Deploying all stacks for environment: ${ENV}${NC}\n"
+
+    echo -e "${YELLOW}Note: Ensure all Docker images are built and pushed to ECR before deploying${NC}"
+    echo -e "${YELLOW}Run: make push-images ENV=${ENV}${NC}\n"
 
     deploy_ecr
     deploy_shared

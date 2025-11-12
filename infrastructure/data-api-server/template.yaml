@@ -98,6 +98,10 @@ Resources:
           Fn::Sub: '${EnvironmentName}-DataApiId'
       RouteKey: 'ANY /{proxy+}'
       Target: !Sub 'integrations/${DataApiIntegration}'
+      AuthorizationType: CUSTOM
+      AuthorizerId:
+        Fn::ImportValue:
+          Fn::Sub: '${EnvironmentName}-DataApiAuthorizerId'
 
   DataApiInvokePermission:
     Type: AWS::Lambda::Permission

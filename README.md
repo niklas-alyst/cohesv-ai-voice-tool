@@ -19,7 +19,7 @@ This platform receives WhatsApp messages (voice or text) via Twilio, processes t
 
 ## Architecture
 
-The system consists of four microservices deployed as containerized AWS Lambda functions:
+The system consists of five microservices deployed as containerized AWS Lambda functions:
 
 ### 1. Webhook Handler ([webhook-handler/](webhook-handler/))
 Entry point for incoming Twilio webhooks.
@@ -45,14 +45,22 @@ Internal API for customer metadata retrieval.
 FastAPI-based REST API for accessing processed data.
 - Lists files by company and message intent
 - Generates presigned S3 URLs for downloads
-- API key authentication via API Gateway
+- API key authentication via Lambda authorizer on API Gateway
+
+### 5. Data API Authorizer ([data-api-authorizer/](data-api-authorizer/))
+Lambda authorizer for Data API authentication.
+- Validates `x-api-key` header against AWS Secrets Manager
+- Caches authorization decisions for 5 minutes
+- Auto-generated secure API keys
 
 ### Supporting Infrastructure ([infrastructure/](infrastructure/))
 CloudFormation templates for all AWS resources:
 - ECR repositories for container images
 - S3 bucket for data storage
 - SQS queue (with DLQ) for message processing
-- HTTP API Gateways for webhook and data API endpoints
+- HTTP API Gateways:
+  - **Webhook API**: Twilio signature validation (no API key)
+  - **Data API**: API key authentication via Lambda authorizer
 - IAM roles and permissions
 
 ### Shared Library ([shared-lib/](shared-lib/))
@@ -75,8 +83,8 @@ Twilio (WhatsApp) → API Gateway → Webhook Handler
         → S3 (store artifacts)
         → Twilio API (send feedback)
 
-Client Application → API Gateway → Data API Server
-    → S3 (list files, presigned URLs)
+Client Application → API Gateway → Data API Authorizer (validates API key)
+    → Data API Server → S3 (list files, presigned URLs)
 ```
 
 ## S3 Data Organization
@@ -119,10 +127,11 @@ ai-voice-tool/
 ├── voice-parser/              # Message processing worker
 ├── customer-lookup-server/    # Customer metadata API
 ├── data-api-server/           # REST API for data access
+├── data-api-authorizer/       # API key validator for data-api
 ├── shared-lib/                # Common code and models
 ├── infrastructure/            # CloudFormation templates
 │   ├── ecr/                   # Container registry
-│   ├── shared/                # S3, SQS, API Gateways
+│   ├── shared/                # S3, SQS, API Gateways, Authorizer
 │   ├── customer-lookup-server/
 │   ├── voice-parser/
 │   ├── webhook-handler/
@@ -204,8 +213,20 @@ Managed via AWS Secrets Manager:
 - Twilio account SID
 - Twilio auth token
 - OpenAI API key
+- Data API key (auto-generated during deployment)
 
-See [infrastructure/SECRETS.md](infrastructure/SECRETS.md) for secrets management.
+**Retrieving the Data API key:**
+```bash
+# For dev environment
+aws secretsmanager get-secret-value \
+  --secret-id dev/ai-voice-tool/data-api-key \
+  --region ap-southeast-2 \
+  --profile cohesv \
+  --query 'SecretString' \
+  --output text | jq -r '.api_key'
+```
+
+See [infrastructure/SECRETS.md](infrastructure/SECRETS.md) for secrets management and [data-api-authorizer/README.md](data-api-authorizer/README.md) for authentication details.
 
 ## Development Guidelines
 
@@ -223,6 +244,7 @@ Each microservice is thoroughly documented:
 - [voice-parser/README.md](voice-parser/README.md)
 - [customer-lookup-server/README.md](customer-lookup-server/README.md)
 - [data-api-server/README.md](data-api-server/README.md)
+- [data-api-authorizer/README.md](data-api-authorizer/README.md)
 - [shared-lib/README.md](shared-lib/README.md)
 - [infrastructure/README.md](infrastructure/README.md)
 
