@@ -3,15 +3,14 @@ FROM public.ecr.aws/lambda/python:3.13
 # Set working directory
 WORKDIR ${LAMBDA_TASK_ROOT}
 
-# Copy and install shared library first
+# Copy shared library; runtime requirements reference this path
 COPY shared-lib/ ./shared-lib/
-RUN pip install --no-cache-dir ./shared-lib
 
-# Copy requirements file
-COPY voice-parser/requirements.txt ./
+# Copy deployment requirements
+COPY voice-parser/requirements.deploy.txt ./requirements.deploy.txt
 
 # Install dependencies using pip
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.deploy.txt
 
 # Copy source code
 COPY voice-parser/voice_parser/ ./voice_parser/

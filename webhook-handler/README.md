@@ -31,3 +31,10 @@ The service requires the following environment variables to be set:
 -   `TWILIO_AUTH_TOKEN`: The authentication token from the Twilio account to validate webhook signatures.
 -   `SQS_QUEUE_URL`: The URL of the AWS SQS queue where validated messages are sent.
 -   The endpoint for the Customer Lookup service is resolved by the `CustomerLookupClient` in the `shared-lib`.
+
+## Dependency management & shared library
+
+- Local work uses `uv sync`, which installs `ai-voice-shared` from `../shared-lib` in editable mode via the `[tool.uv.sources]` configuration in `pyproject.toml`.
+- Docker/CI builds use `requirements.deploy.txt`, where the first line is `ai-voice-shared @ file:///var/task/shared-lib`. The Dockerfile copies `shared-lib/` into `/var/task/shared-lib` before running `pip install -r requirements.deploy.txt`.
+- To refresh pins run `make requirements-sync-webhook-handler` (or `make requirements-sync`) from the repo root; it rebuilds both requirement files and rewrites the shared-lib entry automatically.
+- Keep `uv.lock` committed for local reproducibility; the `.deploy` file plus the vendored shared library control container determinism.

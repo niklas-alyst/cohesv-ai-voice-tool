@@ -156,6 +156,13 @@ uv run pytest
 
 See individual service README files for detailed setup instructions.
 
+#### Dependency management & shared libraries
+
+- Local development relies on `uv` workspaces so that `shared-lib` (`ai-voice-shared`) is installed in **editable** mode. Running `uv sync` from a service directory uses the `[tool.uv.sources]` configuration in that service’s `pyproject.toml` to point back to `../shared-lib`.
+- Docker builds (and any non-`uv` environments) stick to plain `pip` + `requirements*.txt`. Each service exposes a `requirements.deploy.txt` that mirrors `requirements.txt` but replaces the editable shared-lib entry with `ai-voice-shared @ file:///var/task/shared-lib`.
+- Refresh both files with `make requirements-sync` (or `make requirements-sync-<service>`). The target runs `uv pip compile`, copies the output to the deploy file, and rewrites the shared-lib entry.
+- Dockerfiles must copy `shared-lib/` into the image **before** installing the deploy requirements so the `file:///var/task/shared-lib` reference resolves cleanly.
+
 ### Deployment
 
 Deployment uses CloudFormation and must be done in order:

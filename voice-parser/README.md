@@ -44,3 +44,10 @@ The Lambda function is configured to handle partial batch failures. If processin
 -   **Twilio API**: To download media and send messages.
 -   **Transcription Service**: An external service for audio-to-text conversion.
 -   **LLM Service**: An external service for text analysis and structuring.
+
+## Local development vs. deployment dependencies
+
+- **Local**: Run `uv sync` inside `voice-parser/`. The `[tool.uv.sources]` block keeps `ai-voice-shared` (../shared-lib) installed in editable mode so changes propagate immediately.
+- **Docker/CI**: The container build sticks to `pip install -r requirements.deploy.txt`. That file is a pinned copy of `requirements.txt`, except the editable line is replaced with `ai-voice-shared @ file:///var/task/shared-lib`. The Dockerfile copies `shared-lib/` into `/var/task/shared-lib` before installing dependencies so the file URL resolves.
+- **Updating pins**: run `make requirements-sync-voice-parser` (or the top-level `make requirements-sync`) from the repo root. The Make target runs `uv pip compile`, copies the file, and rewrites the shared-lib line automatically.
+- Keep `uv.lock` checked in so local environments stay reproducible, while Docker images rely solely on the `.deploy` requirements file plus the vendored shared library.

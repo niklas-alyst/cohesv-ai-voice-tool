@@ -67,12 +67,17 @@ WEBHOOK_HANDLER_IMG := webhook-handler
 CUSTOMER_LOOKUP_IMG := customer-lookup-server
 DATA_API_IMG := data-api-server
 
+# Services that depend on shared-lib and need dual requirements files
+SHARED_LIB_SERVICES := voice-parser data-api-server webhook-handler
+UV_CACHE_DIR := $(CURDIR)/.uv-cache
+
 .PHONY: all build push-images ecr-login \
 	build-voice-parser push-voice-parser deploy-voice-parser \
 	build-webhook-handler push-webhook-handler deploy-webhook-handler \
 	build-customer-lookup push-customer-lookup deploy-customer-lookup \
 	build-data-api push-data-api deploy-data-api \
 	deploy-infra deploy-ecr deploy-shared \
+	requirements-sync $(addprefix requirements-sync-,$(SHARED_LIB_SERVICES)) \
 	install-shared-lib install-shared-lib-voice-parser install-shared-lib-webhook-handler \
 	lint lint-voice-parser lint-webhook-handler lint-shared-lib lint-customer-lookup lint-data-api \
 	test test-pre-deploy test-post-deploy test-system-e2e \
@@ -106,6 +111,21 @@ install-shared-lib-webhook-handler:
 	cd webhook-handler && uv add --editable ../shared-lib
 
 install-shared-lib: install-shared-lib-voice-parser install-shared-lib-webhook-handler
+
+# --- Dependency lockfiles ---
+requirements-sync: $(addprefix requirements-sync-,$(SHARED_LIB_SERVICES))
+	@echo "✓ Deployment requirements refreshed for: $(SHARED_LIB_SERVICES)"
+
+define REQUIREMENTS_SYNC_TEMPLATE
+requirements-sync-$(1):
+	@echo "Regenerating requirements for $(1)..."
+	cd $(1) && UV_CACHE_DIR=$(UV_CACHE_DIR) uv pip compile pyproject.toml -o requirements.txt
+	cp $(1)/requirements.txt $(1)/requirements.deploy.txt
+	python3 -c "from pathlib import Path; service = '$(1)'; deploy_path = Path(service) / 'requirements.deploy.txt'; text = deploy_path.read_text(); text = text.replace('-e ../shared-lib', 'ai-voice-shared @ file:///var/task/shared-lib'); header = '# Deployment requirements for {svc} (auto-generated via make requirements-sync).\n# Update pyproject.toml and rerun the Make target instead of editing this file manually.\n'.format(svc=service); text = text if text.startswith(header) else header + text.lstrip(); deploy_path.write_text(text)"
+	@echo "✓ $(1)/requirements.txt and requirements.deploy.txt updated"
+endef
+
+$(foreach svc,$(SHARED_LIB_SERVICES),$(eval $(call REQUIREMENTS_SYNC_TEMPLATE,$(svc))))
 
 # --- Linting ---
 lint-voice-parser:
@@ -468,4 +488,3 @@ deploy-shared:
 	@echo "Deploying shared infrastructure (S3, SQS, API Gateway) via CloudFormation..."
 	./infrastructure/deploy.sh $(ENV) shared
 	@echo "✓ Shared infrastructure deployed successfully"
-

@@ -53,6 +53,13 @@ from ai_voice_shared import CustomerLookupClient, TwilioWebhookPayload
 from ai_voice_shared.services.s3_service import S3Service
 ```
 
+### Installing the shared library from other services
+
+- **Local (`uv`)**: Each service sets `[tool.uv.sources.ai-voice-shared] = { path = "../shared-lib", editable = true }` in its `pyproject.toml`. Running `uv sync` from the service directory installs `ai-voice-shared` in editable mode.
+- **Docker/CI**: Copy `shared-lib/` into the image (for example under `/var/task/shared-lib`) and reference it from the service’s `requirements.deploy.txt` via `ai-voice-shared @ file:///var/task/shared-lib`. Install dependencies with `pip install -r requirements.deploy.txt` after the copy step.
+- Use `make requirements-sync` (or the per-service variant) to regenerate `requirements.txt` and `requirements.deploy.txt` whenever dependencies change; it rewrites the shared-lib entry automatically.
+- **Publishing**: When/if the package needs to be consumed outside this monorepo, run `uv build` (or `python -m build`) inside `shared-lib/` to emit a wheel/sdist that can be uploaded to an internal index.
+
 ## Testing
 
 The shared library has its own test suite to ensure reliability of common code used across all services.

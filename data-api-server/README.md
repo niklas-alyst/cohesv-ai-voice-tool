@@ -180,6 +180,13 @@ uv run pytest
 uv run uvicorn data_api_server.main:app --reload
 ```
 
+### Dependency management & shared library
+
+- Local work relies on `uv sync` honoring `[tool.uv.sources.ai-voice-shared]` so the shared library in `../shared-lib` is installed in editable mode.
+- Docker/CI builds avoid `uv` entirely: the Dockerfile copies `shared-lib/` into `/var/task/shared-lib` and installs `requirements.deploy.txt`, which is just `requirements.txt` with the first line rewritten to `ai-voice-shared @ file:///var/task/shared-lib`.
+- When bumping dependencies run `make requirements-sync-data-api-server` (or `make requirements-sync`) from the repo root. This regenerates both requirement files and rewrites the shared-lib entry automatically.
+- Keep `uv.lock` committed for reproducible local environments, but note that container builds only trust the `.deploy` file plus the vendored shared library.
+
 ## Deployment
 
 From the project root directory:

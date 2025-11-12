@@ -3,15 +3,12 @@ FROM public.ecr.aws/lambda/python:3.13
 # Set working directory
 WORKDIR ${LAMBDA_TASK_ROOT}
 
-# Copy and install shared library first
+# Copy shared library and deployment requirements
 COPY shared-lib/ ./shared-lib/
-RUN pip install --no-cache-dir ./shared-lib
-
-# Copy requirements file
-COPY webhook-handler/requirements.txt ./
+COPY webhook-handler/requirements.deploy.txt ./requirements.deploy.txt
 
 # Install dependencies using pip
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.deploy.txt
 
 # Copy source code
 COPY webhook-handler/webhook_handler/ ./webhook_handler/

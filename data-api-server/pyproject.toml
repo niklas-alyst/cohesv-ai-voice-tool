@@ -32,7 +32,7 @@ dev = [
 ]
 
 [tool.uv.sources]
-ai-voice-shared = { path = "../shared-lib" }
+ai-voice-shared = { path = "../shared-lib", editable = true }
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
