@@ -277,7 +277,117 @@ test-shared-lib: test-shared-lib-unit
 test-system-e2e:
 	@echo "Running system-wide end-to-end tests..."
 	@echo "⚠️  This will test the complete pipeline and may incur AWS costs"
-	AWS_PROFILE=$(PROFILE) uv run pytest tests/e2e -v -s
+	@if [ ! -f tests/.env.e2e ]; then \
+		echo "ERROR: tests/.env.e2e not found. Run 'make setup-system-e2e' first."; \
+		exit 1; \
+	fi
+	cd tests && AWS_PROFILE=$(PROFILE) /home/niklas/.local/bin/uv run pytest -v -s
+
+# Setup E2E test configuration
+setup-system-e2e:
+	@echo "Setting up system-wide E2E tests..."
+	@echo ""
+	@if [ -f tests/.env.e2e ]; then \
+		echo "⚠️  tests/.env.e2e already exists"; \
+		read -p "Regenerate? (y/N) " -n 1 -r; \
+		echo; \
+		if [ "$$REPLY" != "y" ] && [ "$$REPLY" != "Y" ]; then \
+			echo "Skipping .env.e2e creation"; \
+			exit 0; \
+		fi; \
+	fi
+	@cp tests/e2e/.env.e2e.example tests/.env.e2e
+	@echo "✓ Created tests/.env.e2e from template"
+	@echo ""
+	@echo "Retrieving CloudFormation outputs..."
+	@WEBHOOK_URL=$$(aws cloudformation describe-stacks \
+		--stack-name $(ENV)-ai-voice-shared \
+		--region $(REGION) \
+		--profile $(PROFILE) \
+		--query 'Stacks[0].Outputs[?OutputKey==`WebhookApiUrl`].OutputValue' \
+		--output text 2>/dev/null || echo ""); \
+	if [ -n "$$WEBHOOK_URL" ]; then \
+		echo "✓ Webhook URL: $$WEBHOOK_URL"; \
+		sed -i "s|E2E_WEBHOOK_URL=.*|E2E_WEBHOOK_URL=$$WEBHOOK_URL|g" tests/.env.e2e; \
+	else \
+		echo "⚠️  Could not retrieve Webhook URL from CloudFormation"; \
+	fi
+	@DATA_API_URL=$$(aws cloudformation describe-stacks \
+		--stack-name $(ENV)-ai-voice-shared \
+		--region $(REGION) \
+		--profile $(PROFILE) \
+		--query 'Stacks[0].Outputs[?OutputKey==`DataApiUrl`].OutputValue' \
+		--output text 2>/dev/null || echo ""); \
+	if [ -n "$$DATA_API_URL" ]; then \
+		echo "✓ Data API URL: $$DATA_API_URL"; \
+		sed -i "s|E2E_DATA_API_URL=.*|E2E_DATA_API_URL=$$DATA_API_URL|g" tests/.env.e2e; \
+	else \
+		echo "⚠️  Could not retrieve Data API URL from CloudFormation"; \
+	fi
+	@S3_BUCKET=$$(aws cloudformation describe-stacks \
+		--stack-name $(ENV)-ai-voice-shared \
+		--region $(REGION) \
+		--profile $(PROFILE) \
+		--query 'Stacks[0].Outputs[?OutputKey==`VoiceDataBucketName`].OutputValue' \
+		--output text 2>/dev/null || echo ""); \
+	if [ -n "$$S3_BUCKET" ]; then \
+		echo "✓ S3 Bucket: $$S3_BUCKET"; \
+		sed -i "s|E2E_S3_BUCKET=.*|E2E_S3_BUCKET=$$S3_BUCKET|g" tests/.env.e2e; \
+	else \
+		echo "⚠️  Could not retrieve S3 Bucket from CloudFormation"; \
+	fi
+	@echo ""
+	@echo "Retrieving secrets from Secrets Manager..."
+	@TWILIO_SECRET=$$(aws secretsmanager get-secret-value \
+		--secret-id $(ENV)/ai-voice-tool/twilio \
+		--region $(REGION) \
+		--profile $(PROFILE) \
+		--query 'SecretString' \
+		--output text 2>/dev/null || echo ""); \
+	if [ -n "$$TWILIO_SECRET" ]; then \
+		TWILIO_AUTH_TOKEN=$$(echo "$$TWILIO_SECRET" | jq -r '.auth_token'); \
+		TWILIO_ACCOUNT_SID=$$(echo "$$TWILIO_SECRET" | jq -r '.account_sid'); \
+		if [ "$$TWILIO_AUTH_TOKEN" != "null" ]; then \
+			echo "✓ Twilio Auth Token retrieved"; \
+			sed -i "s|TWILIO_AUTH_TOKEN=.*|TWILIO_AUTH_TOKEN=$$TWILIO_AUTH_TOKEN|g" tests/.env.e2e; \
+		fi; \
+		if [ "$$TWILIO_ACCOUNT_SID" != "null" ]; then \
+			echo "✓ Twilio Account SID: $$TWILIO_ACCOUNT_SID"; \
+			sed -i "s|TWILIO_ACCOUNT_SID=.*|TWILIO_ACCOUNT_SID=$$TWILIO_ACCOUNT_SID|g" tests/.env.e2e; \
+		fi; \
+	else \
+		echo "⚠️  Could not retrieve Twilio secrets from Secrets Manager"; \
+	fi
+	@echo ""
+	@echo "=== Setup Complete ==="
+	@echo ""
+	@echo "Next steps:"
+	@echo "1. Review and edit tests/.env.e2e with any missing values"
+	@echo "2. Add the Data API key manually (E2E_DATA_API_KEY)"
+	@echo "3. Optionally upload test customer data: make upload-test-customer-data"
+	@echo "4. Run tests: make test-system-e2e"
+	@echo ""
+
+# Upload test customer data to S3
+upload-test-customer-data:
+	@echo "Uploading test customer data..."
+	@S3_BUCKET=$$(grep -E '^E2E_S3_BUCKET=' tests/.env.e2e | cut -d '=' -f2-); \
+	if [ -z "$$S3_BUCKET" ]; then \
+		echo "ERROR: E2E_S3_BUCKET not set in tests/.env.e2e"; \
+		exit 1; \
+	fi; \
+	echo "⚠️  This will OVERWRITE customers.json in $$S3_BUCKET"; \
+	read -p "Continue? (y/N) " -n 1 -r; \
+	echo; \
+	if [ "$$REPLY" = "y" ] || [ "$$REPLY" = "Y" ]; then \
+		aws s3 cp tests/e2e/fixtures/test_customers.json \
+			"s3://$$S3_BUCKET/customers.json" \
+			--profile $(PROFILE) \
+			--region $(REGION); \
+		echo "✓ Test customer data uploaded"; \
+	else \
+		echo "Upload cancelled"; \
+	fi
 
 
 # --- Secrets Management ---

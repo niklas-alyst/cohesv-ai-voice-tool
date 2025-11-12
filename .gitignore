@@ -9,6 +9,7 @@ instructions
 **/.env
 *.env.local
 *.secrets
+tests/.env.e2e
 
 # Migration files
 migration_temp/

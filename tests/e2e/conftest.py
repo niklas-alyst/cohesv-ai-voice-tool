@@ -1,21 +1,30 @@
 """Pytest configuration and shared fixtures for E2E tests."""
 
 import os
+import sys
 import pytest
 import boto3
 from dotenv import load_dotenv
 from typing import Dict, Any
 import httpx
 
+# Add e2e directory to Python path so we can import utils module
+sys.path.insert(0, os.path.dirname(__file__))
+
 
 @pytest.fixture(scope="session", autouse=True)
 def load_e2e_env():
     """Load E2E test environment variables from .env.e2e"""
-    env_file = os.path.join(os.path.dirname(__file__), ".env.e2e")
+    # Look for .env.e2e in both e2e/ directory and tests/ directory (parent)
+    env_file_local = os.path.join(os.path.dirname(__file__), ".env.e2e")
+    env_file_parent = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env.e2e")
+
+    env_file = env_file_parent if os.path.exists(env_file_parent) else env_file_local
+
     if not os.path.exists(env_file):
         pytest.fail(
-            f"E2E configuration file not found: {env_file}\n"
-            "Please copy .env.e2e.example to .env.e2e and configure it."
+            f"E2E configuration file not found at {env_file_parent} or {env_file_local}\n"
+            "Please run 'make setup-system-e2e' from the project root."
         )
     load_dotenv(env_file)
 
