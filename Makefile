@@ -19,18 +19,17 @@
 #     make lint                     # Run linting on all services
 #
 #   DEPLOYMENT WORKFLOW:
-#     1. make lint                           # Check code quality
-#     2. make test-pre-deploy                # Run unit + integration tests
-#     3. make deploy-ecr ENV=dev             # Deploy ECR repositories
-#     4. make push-data-api-authorizer ENV=dev  # Build and push authorizer (REQUIRED before shared stack)
-#     5. make deploy-shared ENV=dev          # Deploy shared infrastructure
-#     6. make push-images ENV=dev            # Build and push remaining service images
-#     7. ./infrastructure/deploy.sh dev customer-lookup  # Deploy remaining Lambdas
-#     8. ./infrastructure/deploy.sh dev voice-parser
-#     9. ./infrastructure/deploy.sh dev webhook-handler
-#    10. ./infrastructure/deploy.sh dev data-api
-#    11. make test-post-deploy               # Run all e2e tests (service + system)
-#    12. Repeat for prod environment
+#     1. make lint                    # Check code quality
+#     2. make test-pre-deploy         # Run unit + integration tests
+#     3. make deploy-infra ENV=dev    # Deploy everything (ECR, images, all stacks)
+#     4. make test-post-deploy        # Run all e2e tests (service + system)
+#     5. Repeat for prod environment
+#
+#   What deploy-infra does automatically:
+#     - Deploys ECR repositories
+#     - Builds and pushes ALL Docker images (including authorizer)
+#     - Deploys shared infrastructure (validates authorizer image exists first)
+#     - Deploys all service Lambdas
 #
 #   SECRETS MANAGEMENT:
 #     make secrets-create ENV=dev   # Create secrets in AWS Secrets Manager
@@ -102,7 +101,7 @@ all: build
 lint: lint-voice-parser lint-webhook-handler lint-shared-lib lint-customer-lookup lint-data-api lint-data-api-authorizer
 build: build-voice-parser build-webhook-handler build-customer-lookup build-data-api build-data-api-authorizer
 push-images: push-voice-parser push-webhook-handler push-customer-lookup push-data-api push-data-api-authorizer
-deploy-infra: deploy-ecr deploy-shared deploy-customer-lookup deploy-voice-parser deploy-webhook-handler deploy-data-api
+deploy-infra: deploy-ecr push-images deploy-shared deploy-customer-lookup deploy-voice-parser deploy-webhook-handler deploy-data-api
 
 # Testing shortcuts
 test-pre-deploy: test-voice-parser-pre-deploy test-webhook-handler-pre-deploy test-customer-lookup-pre-deploy test-data-api-pre-deploy test-data-api-authorizer-pre-deploy test-shared-lib-unit
