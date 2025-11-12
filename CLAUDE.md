@@ -4,6 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development guidelines
 - We use `uv` for this project, so all python code should be ran with `uv run ...`
+- You may have to call `uv` directly from the binary: `/home/niklas/.local/bin/uv`
 - NEVER modify `pyproject.toml` directly, use the corresponding `uv` commands, e.g. `uv add`
 - Run linting after each development: `uv run ruff check`
 
