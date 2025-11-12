@@ -32,7 +32,9 @@ Parameter files are used with the CloudFormation CLI or deployment scripts:
 aws cloudformation deploy \
   --template-file infrastructure/shared/template.yaml \
   --stack-name dev-ai-voice-shared \
-  --parameter-overrides file://infrastructure/parameters/dev.json
+  --parameter-overrides $(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' infrastructure/parameters/dev.json)
+
+These examples assume `jq` is installed so the JSON parameter file can be converted into inline overrides that `aws cloudformation deploy` accepts.
 ```
 
 Or with the deployment helper script:

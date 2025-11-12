@@ -100,6 +100,7 @@ Secret values (API keys, auth tokens) are managed separately via AWS Secrets Man
 ENV=dev
 REGION=ap-southeast-2
 ACCOUNT_ID=404293832854
+PARAM_OVERRIDES=$(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' infrastructure/parameters/$ENV.json)
 
 # 1. ECR repositories
 aws cloudformation deploy \
@@ -107,7 +108,7 @@ aws cloudformation deploy \
   --stack-name "$ENV-ai-voice-ecr" \
   --template-file infrastructure/ecr/template.yaml \
   --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides file://infrastructure/parameters/$ENV.json
+  --parameter-overrides $PARAM_OVERRIDES
 
 # 2. Shared resources
 aws cloudformation deploy \
@@ -115,7 +116,7 @@ aws cloudformation deploy \
   --stack-name "$ENV-ai-voice-shared" \
   --template-file infrastructure/shared/template.yaml \
   --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides file://infrastructure/parameters/$ENV.json
+  --parameter-overrides $PARAM_OVERRIDES
 
 # 3. Build and push Docker images
 make build-customer-lookup
@@ -132,12 +133,14 @@ aws cloudformation deploy \
   --template-file infrastructure/customer-lookup-server/template.yaml \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
-    file://infrastructure/parameters/$ENV.json \
+    $PARAM_OVERRIDES \
     LambdaImageUri=$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/ai-voice-tool/$ENV/customer-lookup:latest
 
 # 5-7. Deploy remaining Lambda stacks (voice-parser, webhook-handler, data-api)
 # See deploy.sh for complete examples with secret ARNs
 ```
+
+_Note: the manual commands above rely on `jq` to translate the JSON parameter file into `Key=Value` overrides._
 
 ## Secrets Management
 

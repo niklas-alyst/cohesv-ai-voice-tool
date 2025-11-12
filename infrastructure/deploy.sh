@@ -115,12 +115,20 @@ deploy_stack() {
 
     echo -e "${GREEN}Deploying ${stack_name}...${NC}"
 
-    # Base parameters from file
-    local params="file://infrastructure/parameters/${ENV}.json"
+    # Convert JSON parameter file into Key=Value overrides
+    local param_file="infrastructure/parameters/${ENV}.json"
+    if ! command -v jq >/dev/null 2>&1; then
+        echo -e "${RED}Error: jq is required to parse ${param_file}${NC}"
+        exit 1
+    fi
+
+    mapfile -t base_params < <(jq -r '.[] | "\(.ParameterKey)=\(.ParameterValue)"' "$param_file")
+    local params=("${base_params[@]}")
 
     # Add extra parameters if provided
     if [[ -n "$extra_params" ]]; then
-        params="${params} ${extra_params}"
+        read -r -a extra_array <<< "$extra_params"
+        params+=("${extra_array[@]}")
     fi
 
     aws cloudformation deploy \
@@ -129,7 +137,7 @@ deploy_stack() {
         --stack-name "${ENV}-${stack_name}" \
         --template-file "$template_file" \
         --capabilities CAPABILITY_NAMED_IAM \
-        --parameter-overrides $params \
+        --parameter-overrides "${params[@]}" \
         $NO_EXECUTE
 
     if [[ -z "$NO_EXECUTE" ]]; then
