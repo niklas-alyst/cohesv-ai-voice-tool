@@ -12,6 +12,22 @@ class CustomerMetadata(BaseModel):
     company_name: str
 
 
+class S3ObjectMetadata(BaseModel):
+    """Metadata for an S3 object."""
+
+    key: str
+    etag: str
+    size: int
+    last_modified: str  # ISO 8601 format
+
+
+class S3ListResponse(BaseModel):
+    """Response from S3 list_objects operation with pagination support."""
+
+    files: list[S3ObjectMetadata]
+    nextContinuationToken: Optional[str] = None
+
+
 class TwilioWebhookPayload(BaseModel):
     """Twilio WhatsApp webhook payload.
 

@@ -154,7 +154,7 @@ Simple health check endpoint (no authentication required).
 
 3. **Run locally:**
    ```bash
-   uv run data-api-server
+   uv run uvicorn data_api_server.main:app --reload
    ```
    The server will start on `http://localhost:8000`
 
@@ -173,8 +173,11 @@ uv pip compile pyproject.toml -o requirements.txt
 # Run linting
 uv run ruff check
 
+# Run tests
+uv run pytest
+
 # Run locally
-uv run data-api-server
+uv run uvicorn data_api_server.main:app --reload
 ```
 
 ## Deployment
@@ -198,10 +201,12 @@ make update-data-api-lambda
 data-api-server/
 ├── src/
 │   └── data_api_server/
-│       ├── __init__.py          # Package init with local server entry point
+│       ├── __init__.py          # Package init
 │       ├── main.py              # FastAPI app with endpoints and Lambda handler
-│       ├── settings.py          # Pydantic settings for configuration
-│       └── s3_service.py        # S3 operations
+│       └── settings.py          # Pydantic settings for configuration
+├── tests/                       # Test suite
+│   ├── test_api.py             # API endpoint tests
+│   └── test_middleware.py      # Middleware tests
 ├── Dockerfile                   # Docker build for Lambda deployment
 ├── pyproject.toml              # Project dependencies and metadata
 ├── requirements.txt            # Generated requirements for Docker
@@ -215,7 +220,7 @@ data-api-server/
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `AWS_REGION` | Yes | AWS region for S3 operations | - |
+| `AWS_REGION` | No | AWS region for S3 operations | `ap-southeast-2` |
 | `S3_BUCKET_NAME` | Yes | S3 bucket name | - |
 | `AWS_PROFILE` | No | AWS profile for credentials (local dev) | None |
 | `API_KEY` | No | API key for local testing | None |

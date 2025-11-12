@@ -5,6 +5,7 @@ import os
 import pytest
 from dotenv import load_dotenv
 
+from ai_voice_shared.models import S3ListResponse, S3ObjectMetadata
 from ai_voice_shared.services.s3_service import S3Service
 from ai_voice_shared.settings import S3Settings
 
@@ -196,18 +197,21 @@ class TestS3ServiceIntegration:
                 continuation_token=None,
             )
 
-            # Verify results
-            assert "files" in result
-            assert "nextContinuationToken" in result
-            assert len(result["files"]) == 3
+            # Verify result is proper Pydantic model
+            assert isinstance(result, S3ListResponse)
+            assert len(result.files) == 3
+            assert result.nextContinuationToken is None or isinstance(
+                result.nextContinuationToken, str
+            )
 
-            # Verify file metadata structure
-            for file_info in result["files"]:
-                assert "key" in file_info
-                assert "etag" in file_info
-                assert "size" in file_info
-                assert "last_modified" in file_info
-                assert file_info["key"] in test_keys
+            # Verify file metadata structure and types
+            for file_info in result.files:
+                assert isinstance(file_info, S3ObjectMetadata)
+                assert isinstance(file_info.key, str)
+                assert isinstance(file_info.etag, str)
+                assert isinstance(file_info.size, int)
+                assert isinstance(file_info.last_modified, str)
+                assert file_info.key in test_keys
 
         finally:
             # Clean up

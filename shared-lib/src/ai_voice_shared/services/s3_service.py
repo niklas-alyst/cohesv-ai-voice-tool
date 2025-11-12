@@ -8,6 +8,7 @@ import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
+from ai_voice_shared.models import S3ListResponse, S3ObjectMetadata
 from ai_voice_shared.settings import S3Settings
 
 logger = logging.getLogger(__name__)
@@ -138,7 +139,7 @@ class S3Service:
         company_id: str,
         message_intent: str,
         continuation_token: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> S3ListResponse:
         """
         List objects in S3 bucket with pagination.
 
@@ -148,8 +149,8 @@ class S3Service:
             continuation_token: Token for pagination
 
         Returns:
-            Dictionary containing:
-                - files: List of file metadata dicts (key, etag, size, last_modified)
+            S3ListResponse containing:
+                - files: List of S3ObjectMetadata (key, etag, size, last_modified)
                 - nextContinuationToken: Token for next page (None if no more results)
         """
         # Construct prefix based on company_id and message_intent
@@ -183,21 +184,21 @@ class S3Service:
                         last_modified_str = str(last_modified)
 
                     files.append(
-                        {
-                            "key": obj["Key"],
-                            "etag": obj["ETag"],
-                            "size": obj["Size"],
-                            "last_modified": last_modified_str,
-                        }
+                        S3ObjectMetadata(
+                            key=obj["Key"],
+                            etag=obj["ETag"],
+                            size=obj["Size"],
+                            last_modified=last_modified_str,
+                        )
                     )
 
-            result = {
-                "files": files,
-                "nextContinuationToken": response.get("NextContinuationToken"),
-            }
+            result = S3ListResponse(
+                files=files,
+                nextContinuationToken=response.get("NextContinuationToken"),
+            )
 
             logger.info(
-                f"Listed {len(files)} objects, has more: {result['nextContinuationToken'] is not None}"
+                f"Listed {len(files)} objects, has more: {result.nextContinuationToken is not None}"
             )
 
             return result

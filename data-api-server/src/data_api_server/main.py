@@ -1,13 +1,13 @@
 """FastAPI application for Data API Server."""
 
 import logging
-from typing import Any
 from urllib.parse import unquote
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from mangum import Mangum
 
+from ai_voice_shared.models import S3ListResponse
 from ai_voice_shared.services.s3_service import S3Service
 from ai_voice_shared.settings import S3Settings
 from .settings import Settings
@@ -67,7 +67,7 @@ async def health_check() -> dict[str, str]:
     return {"status": "healthy"}
 
 
-@app.get("/files/list")
+@app.get("/files/list", response_model=S3ListResponse)
 async def list_files(
     company_id: str = Query(..., description="Company identifier"),
     message_intent: str = Query(
@@ -78,7 +78,7 @@ async def list_files(
         None,
         description="Continuation token from previous response for pagination",
     ),
-) -> dict[str, Any]:
+) -> S3ListResponse:
     """
     List files stored in S3 for a specific company and message intent.
 
@@ -91,8 +91,8 @@ async def list_files(
         nextContinuationToken: Optional pagination token from previous response
 
     Returns:
-        Dictionary containing:
-        - files: Array of file objects with key, etag, size, last_modified
+        S3ListResponse containing:
+        - files: Array of S3ObjectMetadata (key, etag, size, last_modified)
         - nextContinuationToken: Token for next page (null if no more pages)
 
     Raises:
