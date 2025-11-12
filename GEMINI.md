@@ -217,12 +217,12 @@ See [infrastructure/README.md](infrastructure/README.md) for detailed deployment
 
 **Non-Secret Configuration:**
 - Stored in `infrastructure/parameters/{env}.json`
-- Includes: bucket names, Twilio account SID, phone numbers, Lambda settings
+- Includes: bucket names, Twilio phone numbers, Lambda settings
 - Safe to commit to git
 
 **Secret Configuration:**
 - Stored in AWS Secrets Manager
-- Includes: Twilio auth token, OpenAI API key
+- Includes: Twilio account SID, Twilio auth token, OpenAI API key
 - Created with `make secrets-create ENV=dev`
 - Referenced in CloudFormation via Secret ARNs
 - See [infrastructure/SECRETS.md](infrastructure/SECRETS.md)

@@ -19,7 +19,7 @@ Infrastructure parameters are stored in environment-specific JSON files under `p
 - `parameters/dev.json` - Development environment
 - `parameters/prod.json` - Production environment
 
-These files contain non-secret configuration like bucket names, Twilio account SIDs, and environment identifiers. See [parameters/README.md](parameters/README.md) for details.
+These files contain non-secret configuration like bucket names, Twilio phone numbers, and environment identifiers. See [parameters/README.md](parameters/README.md) for details.
 
 Secret values (API keys, auth tokens) are managed separately via AWS Secrets Manager. See [SECRETS.md](SECRETS.md) for secrets management.
 
@@ -44,7 +44,7 @@ Secret values (API keys, auth tokens) are managed separately via AWS Secrets Man
 - `LambdaTimeoutSeconds` (default 900).
 - `LambdaMemorySize` (default 1024 MB).
 - `TwilioWhatsappNumber`.
-- `TwilioAccountSid`, `TwilioAuthTokenSecretArn`, `OpenAIApiKeySecretArn` &mdash; Secrets Manager ARNs resolved into environment variables.
+- `TwilioAccountSidSecretArn`, `TwilioAuthTokenSecretArn`, `OpenAIApiKeySecretArn` &mdash; Secrets Manager ARNs resolved into environment variables.
 
 ### Webhook handler (`webhook-handler/template.yaml`)
 - `EnvironmentName`
@@ -75,7 +75,7 @@ Secret values (API keys, auth tokens) are managed separately via AWS Secrets Man
    ```
 
 2. **Update parameter files:**
-   Edit `infrastructure/parameters/dev.json` with your environment-specific values (bucket names, Twilio account SID, etc.)
+   Edit `infrastructure/parameters/dev.json` with your environment-specific values (bucket names, Twilio WhatsApp number, etc.)
 
 ### Deployment Methods
 

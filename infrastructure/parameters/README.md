@@ -13,12 +13,12 @@ This directory contains environment-specific parameter files for CloudFormation 
 These parameters configure infrastructure settings and are stored in these JSON files:
 - `EnvironmentName` - Environment identifier (dev, staging, prod)
 - `VoiceDataBucketName` - S3 bucket name for voice data
-- `TwilioAccountSid` - Twilio account identifier (not secret)
 - `TwilioWhatsappNumber` - WhatsApp phone number (format: whatsapp:+123456789)
 - `CustomerDataKey` - S3 key for customer data file
 
 ### Secret Parameters
 Secret parameters (API keys, auth tokens) are stored in AWS Secrets Manager and referenced by ARN:
+- `TwilioAccountSidSecretArn` - ARN of Twilio account SID secret
 - `TwilioAuthTokenSecretArn` - ARN of Twilio auth token secret
 - `OpenAIApiKeySecretArn` - ARN of OpenAI API key secret
 

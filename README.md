@@ -196,11 +196,12 @@ See [infrastructure/README.md](infrastructure/README.md) for detailed deployment
 Stored in `infrastructure/parameters/{env}.json`:
 - Environment name
 - S3 bucket names
-- Twilio account SID and phone numbers
+- Twilio phone numbers
 - Lambda timeouts and memory settings
 
 ### Secret Parameters
 Managed via AWS Secrets Manager:
+- Twilio account SID
 - Twilio auth token
 - OpenAI API key
 

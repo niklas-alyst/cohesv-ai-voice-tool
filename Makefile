@@ -294,7 +294,7 @@ secrets-check:
 secrets-create-twilio-account-sid: secrets-check
 	@echo "Creating Twilio Account SID secret for environment: $(ENV)"
 	@TWILIO_ACCOUNT_SID=$$(grep -E '^TWILIO_ACCOUNT_SID=' voice-parser/.env | cut -d '=' -f2-); \
-	if [ -z "$$TWILIO_ACCOUNT_SID" ] || [ "$$TWILIO_ACCOUNT_SID" = "your-twilio-account-sid" ]; then \
+	if [ -z "$$TWILIO_ACCOUNT_SID" ] || [ "$$TWILIO_ACCOUNT_SID" = "your-twilio-account-sid-here" ]; then \
 		echo "ERROR: TWILIO_ACCOUNT_SID not set in voice-parser/.env or still has placeholder value"; \
 		exit 1; \
 	fi; \

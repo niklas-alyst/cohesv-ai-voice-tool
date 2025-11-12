@@ -20,9 +20,9 @@ Parameters:
     MinValue: 128
     MaxValue: 10240
     Description: Memory allocation for the Lambda function.
-  TwilioAccountSid:
+  TwilioAccountSidSecretArn:
     Type: String
-    Description: Twilio account SID used for WhatsApp integration.
+    Description: ARN of the Secrets Manager secret holding the Twilio account SID.
   TwilioWhatsappNumber:
     Type: String
     Description: Twilio WhatsApp-enabled phone number (format whatsapp:+123456789).
@@ -102,7 +102,7 @@ Resources:
             Fn::ImportValue:
               Fn::Sub: '${EnvironmentName}-CustomerLookupFunctionName'
           TWILIO_WHATSAPP_NUMBER: !Ref TwilioWhatsappNumber
-          TWILIO_ACCOUNT_SID: !Sub '{{resolve:secretsmanager:${TwilioAccountSid}:SecretString}}'
+          TWILIO_ACCOUNT_SID: !Sub '{{resolve:secretsmanager:${TwilioAccountSidSecretArn}:SecretString}}'
           TWILIO_AUTH_TOKEN: !Sub '{{resolve:secretsmanager:${TwilioAuthTokenSecretArn}:SecretString}}'
           OPENAI_API_KEY: !Sub '{{resolve:secretsmanager:${OpenAIApiKeySecretArn}:SecretString}}'
       Tags:

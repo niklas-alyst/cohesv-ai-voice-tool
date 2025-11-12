@@ -182,10 +182,11 @@ deploy_voice_parser() {
     local repo_uri="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/ai-voice-tool/${ENV}/voice-parser:latest"
 
     # Get secret ARNs
-    local twilio_secret_arn=$(get_secret_arn "${ENV}/twilio/auth-token")
+    local twilio_sid_secret_arn=$(get_secret_arn "${ENV}/twilio/account-sid")
+    local twilio_auth_secret_arn=$(get_secret_arn "${ENV}/twilio/auth-token")
     local openai_secret_arn=$(get_secret_arn "${ENV}/openai/api-key")
 
-    if [[ -z "$twilio_secret_arn" ]] || [[ -z "$openai_secret_arn" ]]; then
+    if [[ -z "$twilio_sid_secret_arn" ]] || [[ -z "$twilio_auth_secret_arn" ]] || [[ -z "$openai_secret_arn" ]]; then
         echo -e "${RED}Error: Secrets not found in AWS Secrets Manager${NC}"
         echo "Run: make secrets-create ENV=${ENV}"
         exit 1
@@ -193,7 +194,7 @@ deploy_voice_parser() {
 
     deploy_stack "ai-voice-parser" \
         "infrastructure/voice-parser/template.yaml" \
-        "LambdaImageUri=${repo_uri} TwilioAuthTokenSecretArn=${twilio_secret_arn} OpenAIApiKeySecretArn=${openai_secret_arn}"
+        "LambdaImageUri=${repo_uri} TwilioAccountSidSecretArn=${twilio_sid_secret_arn} TwilioAuthTokenSecretArn=${twilio_auth_secret_arn} OpenAIApiKeySecretArn=${openai_secret_arn}"
 }
 
 # Deploy webhook handler
