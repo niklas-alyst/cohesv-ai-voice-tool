@@ -273,9 +273,9 @@ secrets-check:
 # Create Twilio Account SID secret in AWS Secrets Manager
 secrets-create-twilio-account-sid: secrets-check
 	@echo "Creating Twilio Account SID secret for environment: $(ENV)"
-	@TWILIO_ACCOUNT_SID=$$(grep -E '^TWILIO_ACCOUNT_SID=' webhook-handler/.env | cut -d '=' -f2-); \
+	@TWILIO_ACCOUNT_SID=$$(grep -E '^TWILIO_ACCOUNT_SID=' voice-parser/.env | cut -d '=' -f2-); \
 	if [ -z "$$TWILIO_ACCOUNT_SID" ] || [ "$$TWILIO_ACCOUNT_SID" = "your-twilio-account-sid" ]; then \
-		echo "ERROR: TWILIO_ACCOUNT_SID not set in webhook-handler/.env or still has placeholder value"; \
+		echo "ERROR: TWILIO_ACCOUNT_SID not set in voice-parser/.env or still has placeholder value"; \
 		exit 1; \
 	fi; \
 	aws secretsmanager create-secret \
@@ -322,15 +322,15 @@ secrets-create-openai-api-key: secrets-check
 	@echo "✓ OpenAI API Key secret created: $(ENV)/openai/api-key"
 
 # Create all secrets
-secrets-create: secrets-create-twilio-account-sid ssecrets-create-twilio-auth-token secrets-create-openai-api-key
+secrets-create: secrets-create-twilio-account-sid secrets-create-twilio-auth-token secrets-create-openai-api-key
 	@echo "✓ All secrets created for environment: $(ENV)"
 
-# Update Twilio Auth Token secret in AWS Secrets Manager
-secrets-update-twilio-auth-token: secrets-check
-	@echo "Updating Twilio Auth Token secret for environment: $(ENV)"
-	@TWILIO_ACCOUNT_SID=$$(grep -E '^TWILIO_ACCOUNT_SID=' webhook-handler/.env | cut -d '=' -f2-); \
+# Update Twilio Account SID secret in AWS Secrets Manager
+secrets-update-twilio-account-sid: secrets-check
+	@echo "Updating Twilio Account SID secret for environment: $(ENV)"
+	@TWILIO_ACCOUNT_SID=$$(grep -E '^TWILIO_ACCOUNT_SID=' voice-parser/.env | cut -d '=' -f2-); \
 	if [ -z "$$TWILIO_ACCOUNT_SID" ] || [ "$$TWILIO_ACCOUNT_SID" = "your-twilio-account-sid-here" ]; then \
-		echo "ERROR: TWILIO_ACCOUNT_SID not set in webhook-handler/.env or still has placeholder value"; \
+		echo "ERROR: TWILIO_ACCOUNT_SID not set in voice-parser/.env or still has placeholder value"; \
 		exit 1; \
 	fi; \
 	aws secretsmanager update-secret \
@@ -371,7 +371,7 @@ secrets-update-openai-api-key: secrets-check
 	@echo "✓ OpenAI API Key secret updated: $(ENV)/openai/api-key"
 
 # Update all secrets
-secrets-update: secrets-update-twilio-auth-token secrets-update-openai-api-key
+secrets-update: secrets-update-twilio-account-sid secrets-update-twilio-auth-token secrets-update-openai-api-key
 	@echo "✓ All secrets updated for environment: $(ENV)"
 
 # Get secret ARNs (useful for CloudFormation parameters)
