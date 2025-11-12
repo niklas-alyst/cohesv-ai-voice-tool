@@ -164,16 +164,21 @@ Deployment uses CloudFormation and must be done in order:
 # 1. Create secrets in AWS Secrets Manager
 make secrets-create ENV=dev
 
-# 2. Deploy infrastructure (see infrastructure/README.md for details)
-./infrastructure/deploy.sh dev all
+# 2. Deploy all infrastructure (including ECR, shared resources, and all services)
+# This command will deploy ECR repositories, shared resources, build and push Docker images,
+# and then deploy each Lambda service.
+make deploy-infra ENV=dev
 
-# Or deploy individual stacks
-./infrastructure/deploy.sh dev ecr
-./infrastructure/deploy.sh dev shared
-./infrastructure/deploy.sh dev customer-lookup
-./infrastructure/deploy.sh dev voice-parser
-./infrastructure/deploy.sh dev webhook-handler
-./infrastructure/deploy.sh dev data-api
+# Or deploy individual components in order:
+# 2a. Deploy ECR repositories
+make deploy-ecr ENV=dev
+# 2b. Deploy shared infrastructure (S3, SQS, API Gateway)
+make deploy-shared ENV=dev
+# 2c. Build, push, and deploy individual Lambda services
+make deploy-customer-lookup ENV=dev
+make deploy-voice-parser ENV=dev
+make deploy-webhook-handler ENV=dev
+make deploy-data-api ENV=dev
 ```
 
 See [infrastructure/README.md](infrastructure/README.md) for detailed deployment instructions.
@@ -270,12 +275,16 @@ These tests run locally without requiring AWS infrastructure.
 ### 2. Deploy to Dev Environment
 
 ```bash
-# Deploy all infrastructure to dev
+# Deploy all infrastructure to dev. This includes deploying ECR, shared resources,
+# building and pushing Docker images, and deploying each Lambda service.
 make deploy-infra ENV=dev
 
-# Or deploy individual components
+# Or deploy individual components in the following order:
+# 1. Deploy ECR repositories
 make deploy-ecr ENV=dev
+# 2. Deploy shared infrastructure (S3, SQS, API Gateway)
 make deploy-shared ENV=dev
+# 3. Build, push, and deploy individual Lambda services
 make deploy-customer-lookup ENV=dev
 make deploy-voice-parser ENV=dev
 make deploy-webhook-handler ENV=dev

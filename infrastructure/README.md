@@ -79,7 +79,7 @@ Secret values (API keys, auth tokens) are managed separately via AWS Secrets Man
 
 ### Deployment Methods
 
-#### Option 1: Using the deployment script (Recommended)
+#### Option 1: Using the deployment script
 
 ```bash
 # Deploy all stacks for dev environment
