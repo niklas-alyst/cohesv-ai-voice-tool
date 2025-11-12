@@ -3,7 +3,7 @@
 .claude
 *.code-workspace
 instructions
-
+*/**/__pycache__
 # Environment files (secrets)
 .env
 **/.env

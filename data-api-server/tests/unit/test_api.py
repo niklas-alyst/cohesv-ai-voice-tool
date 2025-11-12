@@ -1,17 +1,23 @@
 """Tests for API endpoints."""
 
+import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from ai_voice_shared.models import S3ListResponse, S3ObjectMetadata
-from data_api_server.main import app
+# Removed: from data_api_server.main import app
 
 
 @pytest.fixture
 def client():
     """Create test client."""
+    # Set environment variables before importing app
+    os.environ["S3_BUCKET_NAME"] = "test-bucket"
+    os.environ["API_KEY"] = "" # Disable API key for unit tests
+
+    from data_api_server.main import app
     return TestClient(app)
 
 

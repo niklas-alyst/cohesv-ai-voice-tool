@@ -5,6 +5,8 @@ import json
 import logging
 from typing import Optional
 
+from pydantic import ValidationError
+
 from ai_voice_shared.settings import CustomerLookupSettings
 from ai_voice_shared.models import CustomerMetadata
 
@@ -51,7 +53,7 @@ class CustomerLookupClient:
         try:
             # Use aioboto3 for async Lambda invocation
             session = aioboto3.Session()
-            async with session.client('lambda', region_name=self.aws_region) as lambda_client:
+            async with await session.client('lambda', region_name=self.aws_region) as lambda_client:
                 # Invoke Lambda function synchronously
                 response = await lambda_client.invoke(
                     FunctionName=self.lambda_function_name,
@@ -82,6 +84,8 @@ class CustomerLookupClient:
                 # Validate response has required fields
                 return CustomerMetadata.model_validate(body)
 
+        except ValidationError:
+            raise
         except Exception as e:
             logger.error(f"Failed to fetch customer metadata: {e}")
             raise ValueError(f"Customer lookup failed: {e}")

@@ -1,9 +1,16 @@
 
 import pytest
 import json
-from unittest.mock import patch, MagicMock
-from voice_parser.handler import handler
-from voice_parser.core.processor import ProcessorException
+from unittest.mock import patch
+from voice_parser import handler as handler_module
+
+# Debugging: Print the content of the handler.py file being loaded
+try:
+    handler_file_path = handler_module.__file__
+    with open(handler_file_path, 'r') as f:
+        print(f"\n--- Content of {handler_file_path} ---\n{f.read()}\n--- End of Content ---\n")
+except Exception as e:
+    print(f"Could not read handler file for debugging: {e}")
 
 
 @pytest.fixture
@@ -17,11 +24,20 @@ def create_sqs_event(records_data: list) -> dict:
     """Helper to create an SQS event dictionary."""
     records = []
     for i, data in enumerate(records_data):
+        # Add minimal required fields for TwilioWebhookPayload
+        full_payload = {
+            "AccountSid": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "To": "whatsapp:+1234567890",
+            "From": "whatsapp:" + data.get("From", ""),
+            "MessageSid": data.get("MessageSid", f"SMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_{i}"),
+            "Body": "Test message body",
+            **data # Merge in provided data, allowing overrides
+        }
         records.append(
             {
                 "messageId": f"msg-id-{i}",
                 "receiptHandle": f"receipt-handle-{i}",
-                "body": json.dumps(data),
+                "body": json.dumps(full_payload),
                 "attributes": {},
                 "messageAttributes": {},
                 "md5OfBody": "...",
@@ -51,12 +67,12 @@ def test_handler_partial_batch_failure(mock_process_message):
     # The processor should succeed for the first and third, and raise an exception for the second
     mock_process_message.side_effect = [
         {"status": "success", "message_id": "sid-success-1"},
-        ProcessorException("Something went wrong"),
+        Exception("Something went wrong"),
         {"status": "success", "message_id": "sid-success-2"},
     ]
 
     # Act
-    result = handler(sqs_event, {})
+    result = handler_module.lambda_handler(sqs_event, {})
 
     # Assert
     # The handler should return a list containing only the ID of the failed message

@@ -19,6 +19,7 @@ dev = [
     { name = "boto3" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "python-dotenv" },
     { name = "ruff" },
 ]
 
@@ -36,6 +37,7 @@ dev = [
     { name = "boto3", specifier = ">=1.40.61" },
     { name = "pytest", specifier = ">=8.4.2" },
     { name = "pytest-asyncio", specifier = ">=1.2.0" },
+    { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "ruff", specifier = ">=0.14.3" },
 ]
 

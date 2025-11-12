@@ -105,6 +105,9 @@ class TwilioWebhookPayload(BaseModel):
         return self.From
 
     def get_phone_number_without_prefix(self) -> str:
-        """Extract sender's phone number without whatsapp: prefix."""
-        # Remove "whatsapp:" prefix if present
-        return self.From.replace("whatsapp:", "")
+        """Extract sender's phone number without either whatsapp: or + prefix"""
+        # Remove "whatsapp:" and "+" prefixes if present
+        phone_number = self.From.replace("whatsapp:", "")
+        if phone_number.startswith("+"):
+            return phone_number[1:]
+        return phone_number

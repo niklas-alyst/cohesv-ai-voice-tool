@@ -1,5 +1,6 @@
 """Tests for API middleware."""
 
+import os
 from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
@@ -10,6 +11,7 @@ class TestAPIKeyMiddleware:
 
     def test_health_check_bypasses_auth(self):
         """Test that health check works without API key."""
+        os.environ["S3_BUCKET_NAME"] = "test-bucket" # Set for Settings initialization
         # Import here to ensure fresh app instance with API key
         from data_api_server.main import app
 
@@ -24,6 +26,7 @@ class TestAPIKeyMiddleware:
 
     def test_endpoints_require_api_key_when_configured(self):
         """Test that endpoints require API key when it's configured."""
+        os.environ["S3_BUCKET_NAME"] = "test-bucket" # Set for Settings initialization
         from data_api_server.main import app
 
         with patch("data_api_server.main.settings") as mock_settings:
@@ -40,6 +43,7 @@ class TestAPIKeyMiddleware:
 
     def test_endpoints_accept_valid_api_key(self):
         """Test that endpoints accept valid API key."""
+        os.environ["S3_BUCKET_NAME"] = "test-bucket" # Set for Settings initialization
         from data_api_server.main import app
 
         with patch("data_api_server.main.settings") as mock_settings:
@@ -63,6 +67,7 @@ class TestAPIKeyMiddleware:
 
     def test_endpoints_reject_invalid_api_key(self):
         """Test that endpoints reject invalid API key."""
+        os.environ["S3_BUCKET_NAME"] = "test-bucket" # Set for Settings initialization
         from data_api_server.main import app
 
         with patch("data_api_server.main.settings") as mock_settings:
@@ -80,6 +85,7 @@ class TestAPIKeyMiddleware:
 
     def test_no_auth_when_api_key_not_configured(self):
         """Test that authentication is skipped when API key is None."""
+        os.environ["S3_BUCKET_NAME"] = "test-bucket" # Set for Settings initialization
         from data_api_server.main import app
 
         with patch("data_api_server.main.settings") as mock_settings:
@@ -103,6 +109,7 @@ class TestAPIKeyMiddleware:
 
     def test_case_sensitive_header_name(self):
         """Test that x-api-key header is case-sensitive (lowercase)."""
+        os.environ["S3_BUCKET_NAME"] = "test-bucket" # Set for Settings initialization
         from data_api_server.main import app
 
         with patch("data_api_server.main.settings") as mock_settings:
@@ -126,6 +133,7 @@ class TestAPIKeyMiddleware:
 
     def test_multiple_endpoints_protected(self):
         """Test that all endpoints (except health) are protected."""
+        os.environ["S3_BUCKET_NAME"] = "test-bucket" # Set for Settings initialization
         from data_api_server.main import app
 
         with patch("data_api_server.main.settings") as mock_settings:

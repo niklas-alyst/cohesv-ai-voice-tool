@@ -139,6 +139,33 @@ def test_handler_returns_500_on_sqs_failure(mocker, api_gateway_event, twilio_au
     assert json.loads(response["body"])["error"] == "Failed to process webhook"
 
 
+def test_handler_returns_403_on_invalid_twilio_signature(mocker, api_gateway_event, twilio_auth_token, base_event_params):
+    """Test that the handler returns 403 if the Twilio signature is invalid."""
+    mocker.patch.dict(os.environ, {
+        "TWILIO_AUTH_TOKEN": twilio_auth_token,
+        "SQS_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/12345/test-queue",
+        "AWS_REGION": "us-east-1",
+    })
+
+    # Mock customer lookup to succeed so we can reach the signature validation step
+    mock_customer_client = mocker.MagicMock()
+    mock_customer_client.fetch_customer_metadata = AsyncMock(return_value=mocker.MagicMock())
+    mocker.patch("webhook_handler.handler.CustomerLookupClient", return_value=mock_customer_client)
+
+    # Create an event with an invalid signature
+    invalid_signature_event = api_gateway_event.copy()
+    invalid_signature_event["headers"]["X-Twilio-Signature"] = "invalid-signature"
+
+    mock_sqs_client = mocker.MagicMock()
+    mocker.patch("webhook_handler.handler.boto3.client", return_value=mock_sqs_client)
+
+    response = lambda_handler(invalid_signature_event, None)
+
+    assert response["statusCode"] == 403
+    assert json.loads(response["body"])["error"] == "Invalid Twilio signature"
+    mock_sqs_client.send_message.assert_not_called()
+
+
 def test_handler_returns_500_on_customer_client_init_failure(mocker, api_gateway_event, twilio_auth_token):
     """Test that the handler returns 500 if the CustomerLookupClient fails to initialize."""
     mocker.patch.dict(os.environ, {

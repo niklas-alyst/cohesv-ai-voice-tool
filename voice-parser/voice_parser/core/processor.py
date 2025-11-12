@@ -20,11 +20,6 @@ from voice_parser.services.llm import LLMClient, MessageIntent
 from ai_voice_shared import CustomerLookupClient
 
 
-class ProcessorException(Exception):
-    """Custom exception for errors during message processing."""
-    pass
-
-
 logger = logging.getLogger(__name__)
 
 
@@ -110,7 +105,7 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
         structured_analysis = None
 
     # Upload artifacts to S3
-    key_prefix = f"{company_id}/{message_metadata.intent}/{message_metadata.tag}_{message_id}"
+    key_prefix = f"{company_id}/{message_metadata.intent.value}/{message_metadata.tag}_{message_id}"
 
     s3_keys = {}
     if message_type == "audio":
