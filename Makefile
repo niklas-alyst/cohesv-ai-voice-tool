@@ -161,7 +161,7 @@ test-voice-parser-integration:
 test-voice-parser-e2e:
 	@echo "Running voice-parser e2e tests..."
 	@if [ -d voice-parser/tests/e2e ]; then \
-		cd voice-parser && uv run pytest tests/e2e -v; \
+		cd voice-parser && AWS_PROFILE=$(PROFILE) uv run pytest tests/e2e -v; \
 	else \
 		echo "No e2e tests found for voice-parser"; \
 	fi
@@ -187,7 +187,7 @@ test-webhook-handler-integration:
 
 test-webhook-handler-e2e:
 	@echo "Running webhook-handler e2e tests..."
-	cd webhook-handler && uv run pytest tests/e2e -v
+	cd webhook-handler && AWS_PROFILE=$(PROFILE) uv run pytest tests/e2e -v
 
 test-webhook-handler-pre-deploy: test-webhook-handler-unit test-webhook-handler-integration
 	@echo "✓ Webhook handler pre-deployment tests passed"
@@ -215,7 +215,7 @@ test-customer-lookup-integration:
 test-customer-lookup-e2e:
 	@echo "Running customer-lookup e2e tests..."
 	@if [ -d customer-lookup-server/tests/e2e ]; then \
-		cd customer-lookup-server && uv run pytest tests/e2e -v; \
+		cd customer-lookup-server && AWS_PROFILE=$(PROFILE) uv run pytest tests/e2e -v; \
 	else \
 		echo "No e2e tests found for customer-lookup-server"; \
 	fi
@@ -242,7 +242,7 @@ test-data-api-integration:
 test-data-api-e2e:
 	@echo "Running data-api e2e tests..."
 	@if [ -d data-api-server/tests/e2e ]; then \
-		cd data-api-server && uv run pytest tests/e2e -v; \
+		cd data-api-server && AWS_PROFILE=$(PROFILE) uv run pytest tests/e2e -v; \
 	else \
 		echo "No e2e tests found for data-api-server"; \
 	fi
@@ -265,7 +265,7 @@ test-shared-lib-unit:
 test-shared-lib-e2e:
 	@echo "Running shared-lib e2e tests..."
 	@if [ -d shared-lib/tests/e2e ]; then \
-		cd shared-lib && uv run pytest tests/e2e -v; \
+		cd shared-lib && AWS_PROFILE=$(PROFILE) uv run pytest tests/e2e -v; \
 	else \
 		echo "No e2e tests found for shared-lib"; \
 	fi
@@ -277,7 +277,7 @@ test-shared-lib: test-shared-lib-unit
 test-system-e2e:
 	@echo "Running system-wide end-to-end tests..."
 	@echo "⚠️  This will test the complete pipeline and may incur AWS costs"
-	uv run pytest tests/e2e -v -s
+	AWS_PROFILE=$(PROFILE) uv run pytest tests/e2e -v -s
 
 
 # --- Secrets Management ---
