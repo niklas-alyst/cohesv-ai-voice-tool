@@ -1,0 +1,137 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Lambda container deployment for the Twilio webhook handler.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Description: Deployment environment identifier (e.g. dev, staging, prod).
+  LambdaImageUri:
+    Type: String
+    Description: ECR image URI for the webhook handler Lambda.
+  LambdaTimeoutSeconds:
+    Type: Number
+    Default: 30
+    MinValue: 3
+    MaxValue: 900
+    Description: Lambda timeout in seconds.
+  LambdaMemorySize:
+    Type: Number
+    Default: 512
+    MinValue: 128
+    MaxValue: 10240
+    Description: Memory allocation for the Lambda function.
+  TwilioAuthTokenSecretArn:
+    Type: String
+    Description: ARN of the Secrets Manager secret containing the Twilio auth token.
+
+Resources:
+  WebhookLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${EnvironmentName}-webhook-handler'
+      RetentionInDays: 14
+
+  WebhookExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${EnvironmentName}-webhook-handler-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: WebhookSqsAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource:
+                  Fn::ImportValue:
+                    Fn::Sub: '${EnvironmentName}-VoiceMessagesQueueArn'
+        - PolicyName: WebhookCustomerLookupInvoke
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  Fn::ImportValue:
+                    Fn::Sub: '${EnvironmentName}-CustomerLookupFunctionArn'
+
+  WebhookFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${EnvironmentName}-webhook-handler'
+      PackageType: Image
+      Code:
+        ImageUri: !Ref LambdaImageUri
+      Role: !GetAtt WebhookExecutionRole.Arn
+      Timeout: !Ref LambdaTimeoutSeconds
+      MemorySize: !Ref LambdaMemorySize
+      Environment:
+        Variables:
+          SQS_QUEUE_URL:
+            Fn::ImportValue:
+              Fn::Sub: '${EnvironmentName}-VoiceMessagesQueueUrl'
+          CUSTOMER_LOOKUP_LAMBDA_FUNCTION_NAME:
+            Fn::ImportValue:
+              Fn::Sub: '${EnvironmentName}-CustomerLookupFunctionName'
+          TWILIO_AUTH_TOKEN: !Sub '{{resolve:secretsmanager:${TwilioAuthTokenSecretArn}:SecretString}}'
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+    DependsOn:
+      - WebhookLogGroup
+
+  WebhookIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId:
+        Fn::ImportValue:
+          Fn::Sub: '${EnvironmentName}-WebhookApiId'
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt WebhookFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  WebhookRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Fn::ImportValue:
+          Fn::Sub: '${EnvironmentName}-WebhookApiId'
+      RouteKey: 'POST /webhook'
+      Target: !Sub 'integrations/${WebhookIntegration}'
+
+  WebhookInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref WebhookFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub
+        - 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/${StageName}/*/webhook'
+        - ApiId:
+            Fn::ImportValue:
+              Fn::Sub: '${EnvironmentName}-WebhookApiId'
+          StageName: !Ref EnvironmentName
+
+Outputs:
+  WebhookFunctionArn:
+    Description: ARN of the webhook handler Lambda function.
+    Value: !GetAtt WebhookFunction.Arn
+    Export:
+      Name: !Sub '${EnvironmentName}-WebhookFunctionArn'
+
+  WebhookFunctionName:
+    Description: Name of the webhook handler Lambda function.
+    Value: !Ref WebhookFunction
+    Export:
+      Name: !Sub '${EnvironmentName}-WebhookFunctionName'

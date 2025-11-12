@@ -1,0 +1,18 @@
+[
+  {
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "dev"
+  },
+  {
+    "ParameterKey": "VoiceDataBucketName",
+    "ParameterValue": "cohesv-ai-voice-tool-dev"
+  },
+  {
+    "ParameterKey": "TwilioWhatsappNumber",
+    "ParameterValue": "whatsapp:+61468035449"
+  },
+  {
+    "ParameterKey": "CustomerDataKey",
+    "ParameterValue": "customers.json"
+  }
+]

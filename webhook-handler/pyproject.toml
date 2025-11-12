@@ -16,6 +16,7 @@ dev = [
     "dotenv>=0.9.9",
     "httpx>=0.28.1",
     "pytest>=8.4.2",
+    "ruff>=0.14.3",
 ]
 
 [tool.uv.sources]

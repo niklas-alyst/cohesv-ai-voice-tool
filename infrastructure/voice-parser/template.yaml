@@ -1,0 +1,136 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Lambda container deployment for the voice parser worker.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Description: Deployment environment identifier (e.g. dev, staging, prod).
+  LambdaImageUri:
+    Type: String
+    Description: ECR image URI for the voice parser Lambda.
+  LambdaTimeoutSeconds:
+    Type: Number
+    Default: 900
+    MinValue: 3
+    MaxValue: 900
+    Description: Lambda timeout in seconds.
+  LambdaMemorySize:
+    Type: Number
+    Default: 1024
+    MinValue: 128
+    MaxValue: 10240
+    Description: Memory allocation for the Lambda function.
+  TwilioAccountSid:
+    Type: String
+    Description: Twilio account SID used for WhatsApp integration.
+  TwilioWhatsappNumber:
+    Type: String
+    Description: Twilio WhatsApp-enabled phone number (format whatsapp:+123456789).
+  TwilioAuthTokenSecretArn:
+    Type: String
+    Description: ARN of the Secrets Manager secret holding the Twilio auth token.
+  OpenAIApiKeySecretArn:
+    Type: String
+    Description: ARN of the Secrets Manager secret holding the OpenAI API key.
+
+Resources:
+  VoiceParserLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${EnvironmentName}-voice-parser'
+      RetentionInDays: 14
+
+  VoiceParserExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${EnvironmentName}-voice-parser-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole
+      Policies:
+        - PolicyName: VoiceParserS3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:PutObject
+                Resource:
+                  - Fn::ImportValue:
+                      Fn::Sub: '${EnvironmentName}-VoiceToolBucketArn'
+                  - !Sub
+                    - '${BucketArn}/*'
+                    - BucketArn:
+                        Fn::ImportValue:
+                          Fn::Sub: '${EnvironmentName}-VoiceToolBucketArn'
+        - PolicyName: VoiceParserInvokeCustomerLookup
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  Fn::ImportValue:
+                    Fn::Sub: '${EnvironmentName}-CustomerLookupFunctionArn'
+
+  VoiceParserFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${EnvironmentName}-voice-parser'
+      PackageType: Image
+      Code:
+        ImageUri: !Ref LambdaImageUri
+      Role: !GetAtt VoiceParserExecutionRole.Arn
+      Timeout: !Ref LambdaTimeoutSeconds
+      MemorySize: !Ref LambdaMemorySize
+      Environment:
+        Variables:
+          S3_BUCKET_NAME:
+            Fn::ImportValue:
+              Fn::Sub: '${EnvironmentName}-VoiceToolBucketName'
+          CUSTOMER_LOOKUP_LAMBDA_FUNCTION_NAME:
+            Fn::ImportValue:
+              Fn::Sub: '${EnvironmentName}-CustomerLookupFunctionName'
+          TWILIO_WHATSAPP_NUMBER: !Ref TwilioWhatsappNumber
+          TWILIO_ACCOUNT_SID: !Sub '{{resolve:secretsmanager:${TwilioAccountSid}:SecretString}}'
+          TWILIO_AUTH_TOKEN: !Sub '{{resolve:secretsmanager:${TwilioAuthTokenSecretArn}:SecretString}}'
+          OPENAI_API_KEY: !Sub '{{resolve:secretsmanager:${OpenAIApiKeySecretArn}:SecretString}}'
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+    DependsOn:
+      - VoiceParserLogGroup
+
+  VoiceParserEventSourceMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn:
+        Fn::ImportValue:
+          Fn::Sub: '${EnvironmentName}-VoiceMessagesQueueArn'
+      FunctionName: !Ref VoiceParserFunction
+      Enabled: true
+      BatchSize: 1
+      MaximumBatchingWindowInSeconds: 0
+
+Outputs:
+  VoiceParserFunctionArn:
+    Description: ARN of the voice parser Lambda function.
+    Value: !GetAtt VoiceParserFunction.Arn
+    Export:
+      Name: !Sub '${EnvironmentName}-VoiceParserFunctionArn'
+
+  VoiceParserFunctionName:
+    Description: Name of the voice parser Lambda function.
+    Value: !Ref VoiceParserFunction
+    Export:
+      Name: !Sub '${EnvironmentName}-VoiceParserFunctionName'

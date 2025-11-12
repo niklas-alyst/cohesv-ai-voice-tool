@@ -1,0 +1,126 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Lambda container deployment for the data API FastAPI service.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Description: Deployment environment identifier (e.g. dev, staging, prod).
+  LambdaImageUri:
+    Type: String
+    Description: ECR image URI for the data API Lambda.
+  LambdaTimeoutSeconds:
+    Type: Number
+    Default: 30
+    MinValue: 3
+    MaxValue: 900
+    Description: Lambda timeout in seconds.
+  LambdaMemorySize:
+    Type: Number
+    Default: 512
+    MinValue: 128
+    MaxValue: 10240
+    Description: Memory allocation for the Lambda function.
+
+Resources:
+  DataApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${EnvironmentName}-data-api'
+      RetentionInDays: 14
+
+  DataApiExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${EnvironmentName}-data-api-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DataApiS3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - Fn::ImportValue:
+                      Fn::Sub: '${EnvironmentName}-VoiceToolBucketArn'
+                  - !Sub
+                    - '${BucketArn}/*'
+                    - BucketArn:
+                        Fn::ImportValue:
+                          Fn::Sub: '${EnvironmentName}-VoiceToolBucketArn'
+
+  DataApiFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${EnvironmentName}-data-api'
+      PackageType: Image
+      Code:
+        ImageUri: !Ref LambdaImageUri
+      Role: !GetAtt DataApiExecutionRole.Arn
+      Timeout: !Ref LambdaTimeoutSeconds
+      MemorySize: !Ref LambdaMemorySize
+      Environment:
+        Variables:
+          S3_BUCKET_NAME:
+            Fn::ImportValue:
+              Fn::Sub: '${EnvironmentName}-VoiceToolBucketName'
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+    DependsOn:
+      - DataApiLogGroup
+
+  DataApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId:
+        Fn::ImportValue:
+          Fn::Sub: '${EnvironmentName}-DataApiId'
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt DataApiFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  DataApiRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Fn::ImportValue:
+          Fn::Sub: '${EnvironmentName}-DataApiId'
+      RouteKey: 'ANY /{proxy+}'
+      Target: !Sub 'integrations/${DataApiIntegration}'
+
+  DataApiInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref DataApiFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub
+        - 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/${StageName}/*/*'
+        - ApiId:
+            Fn::ImportValue:
+              Fn::Sub: '${EnvironmentName}-DataApiId'
+          StageName: !Ref EnvironmentName
+
+Outputs:
+  DataApiFunctionArn:
+    Description: ARN of the data API Lambda function.
+    Value: !GetAtt DataApiFunction.Arn
+    Export:
+      Name: !Sub '${EnvironmentName}-DataApiFunctionArn'
+
+  DataApiFunctionName:
+    Description: Name of the data API Lambda function.
+    Value: !Ref DataApiFunction
+    Export:
+      Name: !Sub '${EnvironmentName}-DataApiFunctionName'

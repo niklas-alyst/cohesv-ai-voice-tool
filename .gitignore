@@ -2,3 +2,18 @@
 .vscode
 .claude
 *.code-workspace
+instructions
+
+# Environment files (secrets)
+.env
+**/.env
+*.env.local
+*.secrets
+
+# Migration files
+migration_temp/
+migrate_s3_data_todo.md
+aws_setup_state.md
+
+# local files
+TODO.md

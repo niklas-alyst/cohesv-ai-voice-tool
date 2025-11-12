@@ -1,0 +1,173 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Shared infrastructure for AI Voice Tool workloads (S3, SQS, API Gateway).
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Description: Deployment environment identifier (e.g. dev, staging, prod).
+  VoiceDataBucketName:
+    Type: String
+    Description: Globally unique name for the voice data S3 bucket.
+
+Resources:
+  VoiceToolBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref VoiceDataBucketName
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  VoiceToolBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref VoiceToolBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: EnforceTlsAccess
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !Sub 'arn:aws:s3:::${VoiceToolBucket}'
+              - !Sub 'arn:aws:s3:::${VoiceToolBucket}/*'
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+
+  VoiceMessagesDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${EnvironmentName}-voice-parser-dlq'
+      MessageRetentionPeriod: 1209600
+      KmsMasterKeyId: alias/aws/sqs
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  VoiceMessagesQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${EnvironmentName}-voice-parser-queue'
+      VisibilityTimeout: 300
+      MessageRetentionPeriod: 345600
+      KmsMasterKeyId: alias/aws/sqs
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt VoiceMessagesDLQ.Arn
+        maxReceiveCount: 5
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  WebhookHttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${EnvironmentName}-webhook-http-api'
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowMethods:
+          - POST
+        AllowHeaders:
+          - '*'
+
+  WebhookApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref WebhookHttpApi
+      StageName: !Ref EnvironmentName
+      AutoDeploy: true
+
+  DataHttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${EnvironmentName}-data-http-api'
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowMethods:
+          - GET
+        AllowHeaders:
+          - '*'
+
+  DataApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref DataHttpApi
+      StageName: !Ref EnvironmentName
+      AutoDeploy: true
+
+Outputs:
+  VoiceToolBucketName:
+    Description: Name of the shared S3 bucket for customer and transcription data.
+    Value: !Ref VoiceToolBucket
+    Export:
+      Name: !Sub '${EnvironmentName}-VoiceToolBucketName'
+
+  VoiceToolBucketArn:
+    Description: ARN of the shared S3 bucket.
+    Value: !GetAtt VoiceToolBucket.Arn
+    Export:
+      Name: !Sub '${EnvironmentName}-VoiceToolBucketArn'
+
+  VoiceMessagesQueueUrl:
+    Description: URL of the primary SQS queue for voice parsing jobs.
+    Value: !Ref VoiceMessagesQueue
+    Export:
+      Name: !Sub '${EnvironmentName}-VoiceMessagesQueueUrl'
+
+  VoiceMessagesQueueArn:
+    Description: ARN of the primary SQS queue for voice parsing jobs.
+    Value: !GetAtt VoiceMessagesQueue.Arn
+    Export:
+      Name: !Sub '${EnvironmentName}-VoiceMessagesQueueArn'
+
+  VoiceMessagesDLQArn:
+    Description: ARN of the dead-letter SQS queue.
+    Value: !GetAtt VoiceMessagesDLQ.Arn
+    Export:
+      Name: !Sub '${EnvironmentName}-VoiceMessagesDLQArn'
+
+  WebhookApiId:
+    Description: Identifier of the webhook HTTP API.
+    Value: !Ref WebhookHttpApi
+    Export:
+      Name: !Sub '${EnvironmentName}-WebhookApiId'
+
+  WebhookApiEndpoint:
+    Description: Base endpoint URL of the webhook HTTP API.
+    Value: !GetAtt WebhookHttpApi.ApiEndpoint
+    Export:
+      Name: !Sub '${EnvironmentName}-WebhookApiEndpoint'
+
+  DataApiId:
+    Description: Identifier of the data HTTP API.
+    Value: !Ref DataHttpApi
+    Export:
+      Name: !Sub '${EnvironmentName}-DataApiId'
+
+  DataApiEndpoint:
+    Description: Base endpoint URL of the data HTTP API.
+    Value: !GetAtt DataHttpApi.ApiEndpoint
+    Export:
+      Name: !Sub '${EnvironmentName}-DataApiEndpoint'
+
+  ApiStageName:
+    Description: Stage name shared by HTTP APIs.
+    Value: !Ref EnvironmentName
+    Export:
+      Name: !Sub '${EnvironmentName}-HttpApiStageName'

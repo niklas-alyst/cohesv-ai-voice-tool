@@ -1,0 +1,241 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ECR repositories for AI Voice Tool container images.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Description: Deployment environment identifier (e.g. dev, staging, prod).
+
+Resources:
+  VoiceParserRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub 'ai-voice-tool/${EnvironmentName}/voice-parser'
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 5 tagged images",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "tagPrefixList": ["latest", "v"],
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 5
+                },
+                "action": {
+                  "type": "expire"
+                }
+              },
+              {
+                "rulePriority": 2,
+                "description": "Expire untagged images older than 7 days",
+                "selection": {
+                  "tagStatus": "untagged",
+                  "countType": "sinceImagePushed",
+                  "countUnit": "days",
+                  "countNumber": 7
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Service
+          Value: voice-parser
+
+  WebhookHandlerRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub 'ai-voice-tool/${EnvironmentName}/webhook-handler'
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 5 tagged images",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "tagPrefixList": ["latest", "v"],
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 5
+                },
+                "action": {
+                  "type": "expire"
+                }
+              },
+              {
+                "rulePriority": 2,
+                "description": "Expire untagged images older than 7 days",
+                "selection": {
+                  "tagStatus": "untagged",
+                  "countType": "sinceImagePushed",
+                  "countUnit": "days",
+                  "countNumber": 7
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Service
+          Value: webhook-handler
+
+  CustomerLookupRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub 'ai-voice-tool/${EnvironmentName}/customer-lookup'
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 5 tagged images",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "tagPrefixList": ["latest", "v"],
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 5
+                },
+                "action": {
+                  "type": "expire"
+                }
+              },
+              {
+                "rulePriority": 2,
+                "description": "Expire untagged images older than 7 days",
+                "selection": {
+                  "tagStatus": "untagged",
+                  "countType": "sinceImagePushed",
+                  "countUnit": "days",
+                  "countNumber": 7
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Service
+          Value: customer-lookup
+
+  DataApiRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub 'ai-voice-tool/${EnvironmentName}/data-api'
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 5 tagged images",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "tagPrefixList": ["latest", "v"],
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 5
+                },
+                "action": {
+                  "type": "expire"
+                }
+              },
+              {
+                "rulePriority": 2,
+                "description": "Expire untagged images older than 7 days",
+                "selection": {
+                  "tagStatus": "untagged",
+                  "countType": "sinceImagePushed",
+                  "countUnit": "days",
+                  "countNumber": 7
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Service
+          Value: data-api
+
+Outputs:
+  VoiceParserRepositoryUri:
+    Description: URI of the voice parser ECR repository.
+    Value: !GetAtt VoiceParserRepository.RepositoryUri
+    Export:
+      Name: !Sub '${EnvironmentName}-VoiceParserRepositoryUri'
+
+  VoiceParserRepositoryArn:
+    Description: ARN of the voice parser ECR repository.
+    Value: !GetAtt VoiceParserRepository.Arn
+    Export:
+      Name: !Sub '${EnvironmentName}-VoiceParserRepositoryArn'
+
+  WebhookHandlerRepositoryUri:
+    Description: URI of the webhook handler ECR repository.
+    Value: !GetAtt WebhookHandlerRepository.RepositoryUri
+    Export:
+      Name: !Sub '${EnvironmentName}-WebhookHandlerRepositoryUri'
+
+  WebhookHandlerRepositoryArn:
+    Description: ARN of the webhook handler ECR repository.
+    Value: !GetAtt WebhookHandlerRepository.Arn
+    Export:
+      Name: !Sub '${EnvironmentName}-WebhookHandlerRepositoryArn'
+
+  CustomerLookupRepositoryUri:
+    Description: URI of the customer lookup ECR repository.
+    Value: !GetAtt CustomerLookupRepository.RepositoryUri
+    Export:
+      Name: !Sub '${EnvironmentName}-CustomerLookupRepositoryUri'
+
+  CustomerLookupRepositoryArn:
+    Description: ARN of the customer lookup ECR repository.
+    Value: !GetAtt CustomerLookupRepository.Arn
+    Export:
+      Name: !Sub '${EnvironmentName}-CustomerLookupRepositoryArn'
+
+  DataApiRepositoryUri:
+    Description: URI of the data API ECR repository.
+    Value: !GetAtt DataApiRepository.RepositoryUri
+    Export:
+      Name: !Sub '${EnvironmentName}-DataApiRepositoryUri'
+
+  DataApiRepositoryArn:
+    Description: ARN of the data API ECR repository.
+    Value: !GetAtt DataApiRepository.Arn
+    Export:
+      Name: !Sub '${EnvironmentName}-DataApiRepositoryArn'
