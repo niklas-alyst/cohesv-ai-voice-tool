@@ -175,6 +175,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.error(f"Error sending message to SQS: {str(e)}")
         return {"statusCode": 500, "body": json.dumps({"error": "Failed to process webhook"})}
 
-    # Return 200 OK to Twilio
+    # Return 200 OK to Twilio with empty body
+    # Twilio ignores the response body for message webhooks, but we return empty string to be safe
     logger.info("Lambda finished successfully, returning 200")
-    return {"statusCode": 200, "body": json.dumps({"status": "received"})}
+    return {"statusCode": 200, "body": ""}
