@@ -14,5 +14,8 @@ class Settings(BaseSettings):
     s3_bucket_name: str
     aws_profile: str | None = None
 
+    # API Gateway configuration
+    environment: str = "dev"  # Environment name used as API Gateway stage
+
     # API Gateway will handle API key validation, but we include this for local testing
     api_key: str | None = None

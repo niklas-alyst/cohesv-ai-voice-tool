@@ -154,4 +154,5 @@ async def get_download_url(
 
 # Lambda handler
 # Mangum wraps the FastAPI app to make it compatible with AWS Lambda
-handler = Mangum(app, lifespan="off")
+# api_gateway_base_path strips the stage name from the path so FastAPI sees /files/list instead of /dev/files/list
+handler = Mangum(app, lifespan="off", api_gateway_base_path=f"/{settings.environment}")

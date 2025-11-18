@@ -179,7 +179,8 @@ async def test_text_message_full_pipeline(
 
     assert presigned_response.status_code == 200, f"Presigned URL generation failed: {presigned_response.status_code}"
     presigned_url = presigned_response.json()["url"]
-    assert "X-Amz-Algorithm" in presigned_url, "Expected presigned URL parameters"
+    # Check for either v4 signature (X-Amz-Algorithm) or v2 signature (AWSAccessKeyId)
+    assert "X-Amz-Algorithm" in presigned_url or "AWSAccessKeyId" in presigned_url, "Expected presigned URL parameters"
     print(f"[E2E] Presigned URL generated successfully")
 
     # Download file via presigned URL

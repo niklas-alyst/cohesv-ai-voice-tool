@@ -74,6 +74,7 @@ Resources:
           S3_BUCKET_NAME:
             Fn::ImportValue:
               Fn::Sub: '${EnvironmentName}-VoiceToolBucketName'
+          ENVIRONMENT: !Ref EnvironmentName
       Tags:
         - Key: Environment
           Value: !Ref EnvironmentName
