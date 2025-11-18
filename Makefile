@@ -402,19 +402,19 @@ copy-dev-to-prod:
 	echo "⚠️  This will sync ALL content from dev to prod bucket"; \
 	echo "⚠️  This may OVERWRITE existing files in prod"; \
 	echo ""; \
-	read -p "Continue? (y/N) " -n 1 -r; \
+	bash -c 'read -p "Continue? (y/N) " -n 1 -r REPLY; \
 	echo; \
 	if [ "$$REPLY" = "y" ] || [ "$$REPLY" = "Y" ]; then \
 		echo ""; \
 		echo "Starting sync..."; \
-		aws s3 sync "s3://$$DEV_BUCKET" "s3://$$PROD_BUCKET" \
+		aws s3 sync "s3://'"$$DEV_BUCKET"'" "s3://'"$$PROD_BUCKET"'" \
 			--profile $(PROFILE) \
 			--region $(REGION); \
 		echo ""; \
 		echo "✓ Bucket sync completed successfully"; \
 	else \
 		echo "Sync cancelled"; \
-	fi
+	fi'
 
 
 # --- Secrets Management ---
