@@ -54,10 +54,11 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
     logger.info(f"Received message of type {message_type} from {message_phonenumber}")
 
     # Send confirmation back to client
-    await whatsapp_client.send_message(
+    confirmation_response = await whatsapp_client.send_message(
         recipient_phone=message_phonenumber,
         body="Message received, processing..."
     )
+    logger.info(f"Sent confirmation message, Twilio SID: {confirmation_response.get('sid')}, Status: {confirmation_response.get('status')}")
 
     # Initialize other service clients
     s3_service = S3Service()
@@ -150,10 +151,11 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
 
 Note: Replies to this message are treated as new requests.
 """
-        await whatsapp_client.send_message(
+        analysis_response = await whatsapp_client.send_message(
             recipient_phone=message_phonenumber,
             body=message_body
         )
+        logger.info(f"Sent analysis message, Twilio SID: {analysis_response.get('sid')}, Status: {analysis_response.get('status')}")
     else:
         # For OTHER intent messages, send a simple confirmation
         logger.info("Message classified as OTHER intent, sending simple confirmation")
