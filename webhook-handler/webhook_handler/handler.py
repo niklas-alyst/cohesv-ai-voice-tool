@@ -177,5 +177,5 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     # Return 200 OK to Twilio with empty body
     # Twilio ignores the response body for message webhooks, but we return empty string to be safe
-    logger.info("Lambda finished successfully, returning 200")
+    logger.info("Lambda finished successfully, returning 200 with empty body")
     return {"statusCode": 200, "body": ""}
