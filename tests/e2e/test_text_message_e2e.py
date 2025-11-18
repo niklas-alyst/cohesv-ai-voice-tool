@@ -105,7 +105,7 @@ async def test_text_message_full_pipeline(
     # Check for expected file types
     file_keys = [f.key for f in message_files]
     full_text_files = [k for k in file_keys if "_full_text.txt" in k]
-    text_summary_files = [k for k in file_keys if "_text_summary.txt" in k]
+    text_summary_files = [k for k in file_keys if "text_summary.txt" in k]
 
     assert len(full_text_files) == 1, f"Expected 1 full_text file, found {len(full_text_files)}"
     assert len(text_summary_files) == 1, f"Expected 1 text_summary file, found {len(text_summary_files)}"
