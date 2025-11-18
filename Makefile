@@ -48,7 +48,6 @@
 #     make deploy-shared            # Deploy shared resources (S3, SQS, API Gateway)
 #     make deploy-voice-parser      # Push image + deploy voice-parser Lambda
 #     make deploy-webhook-handler   # Push image + deploy webhook-handler Lambda
-#     make deploy-customer-lookup   # Push image + deploy customer-lookup Lambda
 #     make deploy-data-api          # Push image + deploy data-api Lambda
 #     make deploy ENV=prod          # Deploy to production environment
 
@@ -64,14 +63,12 @@ ENV ?= dev
 # Service Repositories (environment-namespaced)
 VOICE_PARSER_REPO := $(ECR_REGISTRY)/ai-voice-tool/$(ENV)/voice-parser
 WEBHOOK_HANDLER_REPO := $(ECR_REGISTRY)/ai-voice-tool/$(ENV)/webhook-handler
-CUSTOMER_LOOKUP_REPO := $(ECR_REGISTRY)/ai-voice-tool/$(ENV)/customer-lookup
 DATA_API_REPO := $(ECR_REGISTRY)/ai-voice-tool/$(ENV)/data-api
 DATA_API_AUTHORIZER_REPO := $(ECR_REGISTRY)/ai-voice-tool/$(ENV)/data-api-authorizer
 
 # Image Names
 VOICE_PARSER_IMG := voice-parser
 WEBHOOK_HANDLER_IMG := webhook-handler
-CUSTOMER_LOOKUP_IMG := customer-lookup-server
 DATA_API_IMG := data-api-server
 DATA_API_AUTHORIZER_IMG := data-api-authorizer
 
@@ -82,30 +79,28 @@ UV_CACHE_DIR := $(CURDIR)/.uv-cache
 .PHONY: all build push-images ecr-login \
 	build-voice-parser push-voice-parser deploy-voice-parser \
 	build-webhook-handler push-webhook-handler deploy-webhook-handler \
-	build-customer-lookup push-customer-lookup deploy-customer-lookup \
 	build-data-api push-data-api deploy-data-api \
 	build-data-api-authorizer push-data-api-authorizer \
 	deploy-infra deploy-ecr deploy-shared \
 	requirements-sync $(addprefix requirements-sync-,$(SHARED_LIB_SERVICES)) \
 	install-shared-lib install-shared-lib-voice-parser install-shared-lib-webhook-handler \
-	lint lint-voice-parser lint-webhook-handler lint-shared-lib lint-customer-lookup lint-data-api lint-data-api-authorizer \
+	lint lint-voice-parser lint-webhook-handler lint-shared-lib lint-data-api lint-data-api-authorizer \
 	test test-pre-deploy test-post-deploy test-system-e2e \
 	test-voice-parser test-voice-parser-unit test-voice-parser-integration test-voice-parser-e2e test-voice-parser-pre-deploy \
 	test-webhook-handler test-webhook-handler-unit test-webhook-handler-integration test-webhook-handler-e2e test-webhook-handler-pre-deploy \
-	test-customer-lookup test-customer-lookup-unit test-customer-lookup-integration test-customer-lookup-e2e test-customer-lookup-pre-deploy \
 	test-data-api test-data-api-unit test-data-api-integration test-data-api-e2e test-data-api-pre-deploy \
 	test-data-api-authorizer test-data-api-authorizer-unit test-data-api-authorizer-e2e test-data-api-authorizer-pre-deploy \
 	test-shared-lib test-shared-lib-unit test-shared-lib-e2e
 
 all: build
-lint: lint-voice-parser lint-webhook-handler lint-shared-lib lint-customer-lookup lint-data-api lint-data-api-authorizer
-build: build-voice-parser build-webhook-handler build-customer-lookup build-data-api build-data-api-authorizer
-push-images: push-voice-parser push-webhook-handler push-customer-lookup push-data-api push-data-api-authorizer
-deploy-infra: deploy-ecr push-images deploy-shared deploy-customer-lookup deploy-voice-parser deploy-webhook-handler deploy-data-api
+lint: lint-voice-parser lint-webhook-handler lint-shared-lib lint-data-api lint-data-api-authorizer
+build: build-voice-parser build-webhook-handler build-data-api build-data-api-authorizer
+push-images: push-voice-parser push-webhook-handler push-data-api push-data-api-authorizer
+deploy-infra: deploy-ecr push-images deploy-shared deploy-voice-parser deploy-webhook-handler deploy-data-api
 
 # Testing shortcuts
-test-pre-deploy: test-voice-parser-pre-deploy test-webhook-handler-pre-deploy test-customer-lookup-pre-deploy test-data-api-pre-deploy test-data-api-authorizer-pre-deploy test-shared-lib-unit
-test-post-deploy: test-voice-parser-e2e test-webhook-handler-e2e test-customer-lookup-e2e test-data-api-e2e test-data-api-authorizer-e2e test-shared-lib-e2e test-system-e2e
+test-pre-deploy: test-voice-parser-pre-deploy test-webhook-handler-pre-deploy test-data-api-pre-deploy test-data-api-authorizer-pre-deploy test-shared-lib-unit
+test-post-deploy: test-voice-parser-e2e test-webhook-handler-e2e test-data-api-e2e test-data-api-authorizer-e2e test-shared-lib-e2e test-system-e2e
 
 # --- ECR Login ---
 ecr-login:
@@ -146,9 +141,6 @@ lint-webhook-handler:
 
 lint-shared-lib:
 	cd shared-lib && uv run ruff check --fix
-
-lint-customer-lookup:
-	cd customer-lookup-server && uv run ruff check --fix
 
 lint-data-api:
 	cd data-api-server && uv run ruff check --fix
@@ -207,37 +199,6 @@ test-webhook-handler-pre-deploy: test-webhook-handler-unit test-webhook-handler-
 
 test-webhook-handler: test-webhook-handler-pre-deploy
 	@echo "✓ Webhook handler tests complete"
-
-# Customer Lookup Tests
-test-customer-lookup-unit:
-	@echo "Running customer-lookup unit tests..."
-	@if [ -d customer-lookup-server/tests/unit ]; then \
-		cd customer-lookup-server && uv run pytest tests/unit -v; \
-	else \
-		echo "No unit tests found for customer-lookup-server"; \
-	fi
-
-test-customer-lookup-integration:
-	@echo "Running customer-lookup integration tests..."
-	@if [ -d customer-lookup-server/tests/integration ]; then \
-		cd customer-lookup-server && uv run pytest tests/integration -v; \
-	else \
-		echo "No integration tests found for customer-lookup-server"; \
-	fi
-
-test-customer-lookup-e2e:
-	@echo "Running customer-lookup e2e tests..."
-	@if [ -d customer-lookup-server/tests/e2e ]; then \
-		cd customer-lookup-server && AWS_PROFILE=$(PROFILE) uv run pytest tests/e2e -v; \
-	else \
-		echo "No e2e tests found for customer-lookup-server"; \
-	fi
-
-test-customer-lookup-pre-deploy: test-customer-lookup-unit test-customer-lookup-integration
-	@echo "✓ Customer lookup pre-deployment tests passed"
-
-test-customer-lookup: test-customer-lookup-pre-deploy
-	@echo "✓ Customer lookup tests complete"
 
 # Data API Tests
 test-data-api-unit:
@@ -591,22 +552,6 @@ deploy-webhook-handler: push-webhook-handler
 	@echo "Deploying webhook-handler Lambda via CloudFormation..."
 	./infrastructure/deploy.sh $(ENV) webhook-handler
 	@echo "✓ Webhook handler deployed successfully"
-
-# --- Customer Lookup ---
-build-customer-lookup:
-	@echo "Building customer-lookup for environment: $(ENV)"
-	docker build --file customer-lookup-server/Dockerfile -t $(CUSTOMER_LOOKUP_IMG):$(TAG) .
-	docker tag $(CUSTOMER_LOOKUP_IMG):$(TAG) $(CUSTOMER_LOOKUP_REPO):$(TAG)
-
-push-customer-lookup: ecr-login build-customer-lookup
-	@echo "Pushing customer-lookup to $(CUSTOMER_LOOKUP_REPO):$(TAG)"
-	docker push $(CUSTOMER_LOOKUP_REPO):$(TAG)
-	@echo "✓ Customer lookup image pushed successfully"
-
-deploy-customer-lookup: push-customer-lookup
-	@echo "Deploying customer-lookup Lambda via CloudFormation..."
-	./infrastructure/deploy.sh $(ENV) customer-lookup
-	@echo "✓ Customer lookup deployed successfully"
 
 # --- Data API Server ---
 build-data-api:

@@ -16,12 +16,11 @@ This is a WhatsApp AI Assistant built on Python and deployed on AWS Lambda. The 
 
 ### System Architecture
 
-The platform consists of **four microservices** deployed as Docker-based Lambda functions:
+The platform consists of **three microservices** deployed as Docker-based Lambda functions:
 
 1. **webhook-handler** - Receives Twilio webhooks, validates signatures, authorizes senders, enqueues to SQS
 2. **voice-parser** - SQS-triggered worker that processes messages, transcribes audio, analyzes with LLM, stores in S3
-3. **customer-lookup-server** - Internal API providing customer metadata for authorization and data partitioning
-4. **data-api-server** - FastAPI REST API for accessing processed data with presigned S3 URLs
+3. **data-api-server** - FastAPI REST API for accessing processed data with presigned S3 URLs
 
 Plus supporting components:
 - **shared-lib** - Common code, models, and clients shared across all services
@@ -33,7 +32,6 @@ All microservices are well-documented through README.md files. **This should be 
 Service-specific documentation:
 - [webhook-handler/README.md](webhook-handler/README.md) - Twilio webhook validation and SQS enqueueing
 - [voice-parser/README.md](voice-parser/README.md) - Message processing pipeline
-- [customer-lookup-server/README.md](customer-lookup-server/README.md) - Customer authorization API
 - [data-api-server/README.md](data-api-server/README.md) - REST API for data access
 - [shared-lib/README.md](shared-lib/README.md) - Common models and utilities
 - [infrastructure/README.md](infrastructure/README.md) - Deployment and CloudFormation stacks
@@ -44,9 +42,9 @@ Service-specific documentation:
 
 ```
 Twilio (WhatsApp) → API Gateway → webhook-handler
-    → customer-lookup-server (authorization)
+    → Wunse API (authorization)
     → SQS Queue → voice-parser (async worker)
-        → customer-lookup-server (metadata)
+        → Wunse API (metadata)
         → Twilio API (download media)
         → OpenAI Whisper (transcribe audio)
         → OpenAI GPT (analyze intent & structure)
@@ -67,7 +65,7 @@ Client App → API Gateway → data-api-server
 **webhook-handler**
 - Entry point for Twilio webhooks (POST)
 - Validates Twilio signature (`X-Twilio-Signature`)
-- Checks sender authorization via customer-lookup-server
+- Checks sender authorization via Wunse API
 - Enqueues validated `TwilioWebhookPayload` to SQS
 - Returns immediate 200 OK to Twilio
 
@@ -84,12 +82,6 @@ Client App → API Gateway → data-api-server
 - Uploads all artifacts to S3 under `{company_id}/{intent}/` prefix
 - Sends progress updates to users via Twilio
 - Uses partial failure handling (returns `batchItemFailures` to SQS)
-
-**customer-lookup-server**
-- Internal Lambda-to-Lambda invocation API
-- Loads customer data from S3 (`customers.json`)
-- Provides customer metadata: `customer_id`, `company_id`, `company_name`
-- Used for authorization (webhook-handler) and data partitioning (voice-parser)
 
 **data-api-server**
 - FastAPI application on Lambda (with Mangum adapter)
@@ -116,10 +108,6 @@ ai-voice-tool/
 │           ├── transcription.py  # OpenAI Whisper
 │           ├── llm.py            # OpenAI GPT
 │           └── twilio.py         # Twilio API client
-├── customer-lookup-server/    # Customer metadata API
-│   └── customer_lookup/
-│       ├── handler.py         # Lambda entry point
-│       └── settings.py        # Configuration
 ├── data-api-server/           # REST API for data access
 │   └── data_api_server/
 │       ├── main.py            # FastAPI app + Lambda handler
@@ -134,7 +122,6 @@ ai-voice-tool/
 └── infrastructure/            # CloudFormation IaC
     ├── ecr/                   # Container registries
     ├── shared/                # S3, SQS, API Gateway
-    ├── customer-lookup-server/
     ├── voice-parser/
     ├── webhook-handler/
     ├── data-api-server/
@@ -145,7 +132,8 @@ ai-voice-tool/
 - All services deployed as Docker-based Lambda functions
 - ECR for container image storage
 - SQS for decoupling webhook ingestion from processing
-- S3 for all data persistence (customer data, audio files, processed results)
+- S3 for all data persistence (audio files, processed results)
+- External Wunse API for customer metadata lookup
 - CloudFormation for infrastructure as code
 - Monorepo with shared library for common code
 - Service layer pattern for all external integrations
@@ -160,7 +148,7 @@ Each service has its own `pyproject.toml` and dependencies:
 
 ```bash
 # Navigate to a service directory
-cd webhook-handler  # or voice-parser, customer-lookup-server, data-api-server
+cd webhook-handler  # or voice-parser, data-api-server
 
 # Install dependencies
 uv sync
@@ -202,7 +190,6 @@ make secrets-create ENV=dev
 # 2. Deploy infrastructure stacks in order
 ./infrastructure/deploy.sh dev ecr             # ECR repositories
 ./infrastructure/deploy.sh dev shared          # S3, SQS, API Gateway
-./infrastructure/deploy.sh dev customer-lookup # Customer lookup Lambda
 ./infrastructure/deploy.sh dev voice-parser    # Voice parser Lambda
 ./infrastructure/deploy.sh dev webhook-handler # Webhook handler Lambda
 ./infrastructure/deploy.sh dev data-api        # Data API Lambda
@@ -222,7 +209,7 @@ See [infrastructure/README.md](infrastructure/README.md) for detailed deployment
 
 **Secret Configuration:**
 - Stored in AWS Secrets Manager
-- Includes: Twilio account SID, Twilio auth token, OpenAI API key
+- Includes: Twilio account SID, Twilio auth token, OpenAI API key, Wunse API key
 - Created with `make secrets-create ENV=dev`
 - Referenced in CloudFormation via Secret ARNs
 - See [infrastructure/SECRETS.md](infrastructure/SECRETS.md)

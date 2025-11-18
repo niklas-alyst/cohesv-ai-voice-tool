@@ -24,7 +24,6 @@ Arguments:
   stack         Stack to deploy:
                   - ecr              ECR repositories (deploy first)
                   - shared           Shared infrastructure (S3, SQS, API Gateway)
-                  - customer-lookup  Customer lookup Lambda
                   - voice-parser     Voice parser Lambda
                   - webhook-handler  Webhook handler Lambda
                   - data-api         Data API Lambda
@@ -184,15 +183,6 @@ deploy_shared() {
     deploy_stack "ai-voice-shared" "infrastructure/shared/template.yaml"
 }
 
-# Deploy customer lookup
-deploy_customer_lookup() {
-    local repo_uri="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/ai-voice-tool/${ENV}/customer-lookup:latest"
-
-    deploy_stack "ai-voice-customer-lookup" \
-        "infrastructure/customer-lookup-server/template.yaml" \
-        "LambdaImageUri=${repo_uri}"
-}
-
 # Deploy voice parser
 deploy_voice_parser() {
     local repo_uri="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/ai-voice-tool/${ENV}/voice-parser:latest"
@@ -201,8 +191,9 @@ deploy_voice_parser() {
     local twilio_sid_secret_arn=$(get_secret_arn "${ENV}/twilio/account-sid")
     local twilio_auth_secret_arn=$(get_secret_arn "${ENV}/twilio/auth-token")
     local openai_secret_arn=$(get_secret_arn "${ENV}/openai/api-key")
+    local wunse_api_key_secret_arn=$(get_secret_arn "${ENV}/wunse/api-key")
 
-    if [[ -z "$twilio_sid_secret_arn" ]] || [[ -z "$twilio_auth_secret_arn" ]] || [[ -z "$openai_secret_arn" ]]; then
+    if [[ -z "$twilio_sid_secret_arn" ]] || [[ -z "$twilio_auth_secret_arn" ]] || [[ -z "$openai_secret_arn" ]] || [[ -z "$wunse_api_key_secret_arn" ]]; then
         echo -e "${RED}Error: Secrets not found in AWS Secrets Manager${NC}"
         echo "Run: make secrets-create ENV=${ENV}"
         exit 1
@@ -210,25 +201,26 @@ deploy_voice_parser() {
 
     deploy_stack "ai-voice-parser" \
         "infrastructure/voice-parser/template.yaml" \
-        "LambdaImageUri=${repo_uri} TwilioAccountSidSecretArn=${twilio_sid_secret_arn} TwilioAuthTokenSecretArn=${twilio_auth_secret_arn} OpenAIApiKeySecretArn=${openai_secret_arn}"
+        "LambdaImageUri=${repo_uri} TwilioAccountSidSecretArn=${twilio_sid_secret_arn} TwilioAuthTokenSecretArn=${twilio_auth_secret_arn} OpenAIApiKeySecretArn=${openai_secret_arn} WunseApiKeySecretArn=${wunse_api_key_secret_arn}"
 }
 
 # Deploy webhook handler
 deploy_webhook_handler() {
     local repo_uri="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/ai-voice-tool/${ENV}/webhook-handler:latest"
 
-    # Get secret ARN
+    # Get secret ARNs
     local twilio_secret_arn=$(get_secret_arn "${ENV}/twilio/auth-token")
+    local wunse_api_key_secret_arn=$(get_secret_arn "${ENV}/wunse/api-key")
 
-    if [[ -z "$twilio_secret_arn" ]]; then
-        echo -e "${RED}Error: Twilio secret not found in AWS Secrets Manager${NC}"
+    if [[ -z "$twilio_secret_arn" ]] || [[ -z "$wunse_api_key_secret_arn" ]]; then
+        echo -e "${RED}Error: Secrets not found in AWS Secrets Manager${NC}"
         echo "Run: make secrets-create ENV=${ENV}"
         exit 1
     fi
 
     deploy_stack "ai-voice-webhook" \
         "infrastructure/webhook-handler/template.yaml" \
-        "LambdaImageUri=${repo_uri} TwilioAuthTokenSecretArn=${twilio_secret_arn}"
+        "LambdaImageUri=${repo_uri} TwilioAuthTokenSecretArn=${twilio_secret_arn} WunseApiKeySecretArn=${wunse_api_key_secret_arn}"
 }
 
 # Deploy data API
@@ -249,7 +241,6 @@ deploy_all() {
 
     deploy_ecr
     deploy_shared
-    deploy_customer_lookup
     deploy_voice_parser
     deploy_webhook_handler
     deploy_data_api
@@ -264,9 +255,6 @@ case $STACK in
         ;;
     shared)
         deploy_shared
-        ;;
-    customer-lookup)
-        deploy_customer_lookup
         ;;
     voice-parser)
         deploy_voice_parser

@@ -3,15 +3,15 @@ from pydantic import ValidationError
 from ai_voice_shared.settings import CustomerLookupSettings, S3Settings
 
 def test_customer_lookup_settings_valid(monkeypatch):
-    monkeypatch.setenv("CUSTOMER_LOOKUP_LAMBDA_FUNCTION_NAME", "test-lookup-function")
-    monkeypatch.setenv("AWS_REGION", "us-east-1")
+    monkeypatch.setenv("WUNSE_API_BASE_URL", "https://api.example.com")
+    monkeypatch.setenv("WUNSE_API_KEY", "test-api-key-123")
     settings = CustomerLookupSettings()
-    assert settings.customer_lookup_lambda_function_name == "test-lookup-function"
-    assert settings.aws_region == "us-east-1"
+    assert settings.wunse_api_base_url == "https://api.example.com"
+    assert settings.wunse_api_key == "test-api-key-123"
 
 def test_customer_lookup_settings_missing_variable(monkeypatch):
-    monkeypatch.delenv("CUSTOMER_LOOKUP_LAMBDA_FUNCTION_NAME", raising=False)
-    monkeypatch.setenv("AWS_REGION", "us-east-1")
+    monkeypatch.delenv("WUNSE_API_BASE_URL", raising=False)
+    monkeypatch.setenv("WUNSE_API_KEY", "test-api-key")
     with pytest.raises(ValidationError):
         CustomerLookupSettings()
 
