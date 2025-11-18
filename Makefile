@@ -100,6 +100,18 @@ all: build
 lint: lint-voice-parser lint-webhook-handler lint-shared-lib lint-data-api lint-data-api-authorizer
 build: build-voice-parser build-webhook-handler build-data-api build-data-api-authorizer
 push-images: push-voice-parser push-webhook-handler push-data-api push-data-api-authorizer
+	@echo "Tagging deployment with git..."
+	@git tag -a "$(ENV)-$$(date +%Y-%m-%d-%H%M%S)" -m "Deployment to $(ENV) on $$(date '+%Y-%m-%d %H:%M:%S')"
+	@LATEST_TAG=$$(git tag --sort=-creatordate | grep "^$(ENV)-" | head -n 1); \
+	echo "✓ Created git tag: $$LATEST_TAG"; \
+	echo ""; \
+	read -p "Push tag to remote? (Y/n) " -n 1 -r REPLY; \
+	echo; \
+	if [ -z "$$REPLY" ] || [ "$$REPLY" = "y" ] || [ "$$REPLY" = "Y" ]; then \
+		git push origin "$$LATEST_TAG" && echo "✓ Tag pushed to remote"; \
+	else \
+		echo "Tag created locally only (push later with: git push origin $$LATEST_TAG)"; \
+	fi
 deploy-infra: deploy-ecr push-images deploy-shared deploy-voice-parser deploy-webhook-handler deploy-data-api
 
 # Testing shortcuts
