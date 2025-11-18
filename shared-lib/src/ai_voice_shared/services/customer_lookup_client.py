@@ -48,7 +48,7 @@ class CustomerLookupClient:
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"{self.api_base_url}/customer/lookup",
+                    f"{self.api_base_url}/customer-lookup/customers/lookup",
                     params={"phone_number": clean_phone_number},
                     headers={"x-api-key": self.api_key},
                     timeout=10.0

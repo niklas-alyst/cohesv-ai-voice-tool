@@ -57,7 +57,7 @@ async def test_fetch_customer_metadata_success(mock_customer_lookup_settings):
         assert metadata.company_name == "TestCo"
 
         mock_client.get.assert_called_once_with(
-            "https://api.example.com/customer/lookup",
+            "https://api.example.com/customer-lookup/customers/lookup",
             params={"phone_number": "+1234567890"},
             headers={"x-api-key": "test-api-key-123"},
             timeout=10.0
