@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 from typing import Any, Dict
 
 from customer_lookup_server.core.repository import CustomerRepository
@@ -10,8 +11,10 @@ from customer_lookup_server.core.repository import CustomerRepository
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# Initialize repository
-repository = CustomerRepository()
+# Initialize repository with environment variables
+s3_bucket = os.environ.get("S3_BUCKET_NAME", "cohesv-ai-voice-tool")
+s3_key = os.environ.get("CUSTOMERS_S3_KEY", "customers.json")
+repository = CustomerRepository(s3_bucket=s3_bucket, s3_key=s3_key)
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
