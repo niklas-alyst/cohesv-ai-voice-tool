@@ -242,10 +242,9 @@ class TestProcessorIntegration:
             tag="plumbing-best-practices"
         )
         mock_analysis = KnowledgeDocumentModel(
+            title="Plumbing best practices",
             summary="Summary of plumbing best practices",
-            job="General knowledge",
             context="Reference for new hires",
-            action_items=["check-valves-annually", "use-teflon-tape"]
         )
 
         # Mock CustomerLookupClient
