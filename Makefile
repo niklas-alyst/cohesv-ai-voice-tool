@@ -36,6 +36,9 @@
 #     make secrets-update ENV=dev   # Update existing secrets
 #     make secrets-get-arns ENV=dev # Get ARNs for CloudFormation parameters
 #
+#   DATA MANAGEMENT:
+#     make copy-dev-to-prod         # Copy all S3 bucket content from dev to prod
+#
 #   DOCKER IMAGES:
 #     make build                    # Build all Docker images locally
 #     make push-images              # Build and push all images to ECR
@@ -90,7 +93,8 @@ UV_CACHE_DIR := $(CURDIR)/.uv-cache
 	test-webhook-handler test-webhook-handler-unit test-webhook-handler-integration test-webhook-handler-e2e test-webhook-handler-pre-deploy \
 	test-data-api test-data-api-unit test-data-api-integration test-data-api-e2e test-data-api-pre-deploy \
 	test-data-api-authorizer test-data-api-authorizer-unit test-data-api-authorizer-e2e test-data-api-authorizer-pre-deploy \
-	test-shared-lib test-shared-lib-unit test-shared-lib-e2e
+	test-shared-lib test-shared-lib-unit test-shared-lib-e2e \
+	copy-dev-to-prod
 
 all: build
 lint: lint-voice-parser lint-webhook-handler lint-shared-lib lint-data-api lint-data-api-authorizer
@@ -384,6 +388,32 @@ upload-test-customer-data:
 		echo "✓ Test customer data uploaded"; \
 	else \
 		echo "Upload cancelled"; \
+	fi
+
+# Copy content from dev bucket to prod bucket
+copy-dev-to-prod:
+	@echo "Copying S3 bucket content from dev to prod..."
+	@echo ""
+	@DEV_BUCKET=$$(jq -r '.[] | select(.ParameterKey=="VoiceDataBucketName") | .ParameterValue' infrastructure/parameters/dev.json); \
+	PROD_BUCKET=$$(jq -r '.[] | select(.ParameterKey=="VoiceDataBucketName") | .ParameterValue' infrastructure/parameters/prod.json); \
+	echo "Source:      s3://$$DEV_BUCKET"; \
+	echo "Destination: s3://$$PROD_BUCKET"; \
+	echo ""; \
+	echo "⚠️  This will sync ALL content from dev to prod bucket"; \
+	echo "⚠️  This may OVERWRITE existing files in prod"; \
+	echo ""; \
+	read -p "Continue? (y/N) " -n 1 -r; \
+	echo; \
+	if [ "$$REPLY" = "y" ] || [ "$$REPLY" = "Y" ]; then \
+		echo ""; \
+		echo "Starting sync..."; \
+		aws s3 sync "s3://$$DEV_BUCKET" "s3://$$PROD_BUCKET" \
+			--profile $(PROFILE) \
+			--region $(REGION); \
+		echo ""; \
+		echo "✓ Bucket sync completed successfully"; \
+	else \
+		echo "Sync cancelled"; \
 	fi
 
 
