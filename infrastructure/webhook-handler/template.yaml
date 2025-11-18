@@ -61,16 +61,6 @@ Resources:
                 Resource:
                   Fn::ImportValue:
                     Fn::Sub: '${EnvironmentName}-VoiceMessagesQueueArn'
-        - PolicyName: WebhookCustomerLookupInvoke
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - lambda:InvokeFunction
-                Resource:
-                  Fn::ImportValue:
-                    Fn::Sub: '${EnvironmentName}-CustomerLookupFunctionArn'
 
   WebhookFunction:
     Type: AWS::Lambda::Function
@@ -87,9 +77,6 @@ Resources:
           SQS_QUEUE_URL:
             Fn::ImportValue:
               Fn::Sub: '${EnvironmentName}-VoiceMessagesQueueUrl'
-          CUSTOMER_LOOKUP_LAMBDA_FUNCTION_NAME:
-            Fn::ImportValue:
-              Fn::Sub: '${EnvironmentName}-CustomerLookupFunctionName'
           TWILIO_AUTH_TOKEN: !Sub '{{resolve:secretsmanager:${TwilioAuthTokenSecretArn}:SecretString}}'
           WUNSE_API_KEY: !Sub '{{resolve:secretsmanager:${WunseApiKeySecretArn}:SecretString}}'
           WUNSE_API_BASE_URL: !Ref WunseApiBaseUrl

@@ -78,16 +78,6 @@ Resources:
                     - BucketArn:
                         Fn::ImportValue:
                           Fn::Sub: '${EnvironmentName}-VoiceToolBucketArn'
-        - PolicyName: VoiceParserInvokeCustomerLookup
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - lambda:InvokeFunction
-                Resource:
-                  Fn::ImportValue:
-                    Fn::Sub: '${EnvironmentName}-CustomerLookupFunctionArn'
 
   VoiceParserFunction:
     Type: AWS::Lambda::Function
@@ -104,9 +94,6 @@ Resources:
           S3_BUCKET_NAME:
             Fn::ImportValue:
               Fn::Sub: '${EnvironmentName}-VoiceToolBucketName'
-          CUSTOMER_LOOKUP_LAMBDA_FUNCTION_NAME:
-            Fn::ImportValue:
-              Fn::Sub: '${EnvironmentName}-CustomerLookupFunctionName'
           TWILIO_WHATSAPP_NUMBER: !Ref TwilioWhatsappNumber
           TWILIO_ACCOUNT_SID: !Sub '{{resolve:secretsmanager:${TwilioAccountSidSecretArn}:SecretString}}'
           TWILIO_AUTH_TOKEN: !Sub '{{resolve:secretsmanager:${TwilioAuthTokenSecretArn}:SecretString}}'
