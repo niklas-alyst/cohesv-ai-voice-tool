@@ -199,6 +199,7 @@ deploy_voice_parser() {
         exit 1
     fi
 
+    # Note: WunseApiBaseUrl comes from the parameter file (dev.json/prod.json)
     deploy_stack "ai-voice-parser" \
         "infrastructure/voice-parser/template.yaml" \
         "LambdaImageUri=${repo_uri} TwilioAccountSidSecretArn=${twilio_sid_secret_arn} TwilioAuthTokenSecretArn=${twilio_auth_secret_arn} OpenAIApiKeySecretArn=${openai_secret_arn} WunseApiKeySecretArn=${wunse_api_key_secret_arn}"
@@ -218,6 +219,7 @@ deploy_webhook_handler() {
         exit 1
     fi
 
+    # Note: WunseApiBaseUrl comes from the parameter file (dev.json/prod.json)
     deploy_stack "ai-voice-webhook" \
         "infrastructure/webhook-handler/template.yaml" \
         "LambdaImageUri=${repo_uri} TwilioAuthTokenSecretArn=${twilio_secret_arn} WunseApiKeySecretArn=${wunse_api_key_secret_arn}"

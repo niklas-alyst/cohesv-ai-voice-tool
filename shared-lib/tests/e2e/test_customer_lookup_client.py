@@ -34,6 +34,15 @@ def customer_lookup_settings():
 
 
 @pytest.fixture
+def test_phone_number():
+    """Get test phone number from environment or skip test."""
+    phone = os.getenv("TEST_CUSTOMER_PHONE_NUMBER")
+    if not phone or phone == "your-test-phone-number":
+        pytest.skip("TEST_CUSTOMER_PHONE_NUMBER not set in .env.test - add a valid test customer phone number")
+    return phone
+
+
+@pytest.fixture
 def customer_lookup_client(customer_lookup_settings):
     """Create CustomerLookupClient for testing."""
     return CustomerLookupClient(settings=customer_lookup_settings)
@@ -45,14 +54,11 @@ class TestCustomerLookupClient:
 
     @pytest.mark.asyncio
     async def test_fetch_customer_metadata_with_valid_phone_number(
-        self, customer_lookup_client
+        self, customer_lookup_client, test_phone_number
     ):
         """Test fetching customer metadata with a valid phone number."""
-        # Using test phone number - update with actual test data from your API
-        phone_number = "+61400000000"
-
         # Fetch customer metadata
-        customer_metadata = await customer_lookup_client.fetch_customer_metadata(phone_number)
+        customer_metadata = await customer_lookup_client.fetch_customer_metadata(test_phone_number)
 
         # Assertions
         assert isinstance(customer_metadata, CustomerMetadata)
@@ -62,11 +68,11 @@ class TestCustomerLookupClient:
 
     @pytest.mark.asyncio
     async def test_fetch_customer_metadata_with_whatsapp_prefix(
-        self, customer_lookup_client
+        self, customer_lookup_client, test_phone_number
     ):
         """Test fetching customer metadata with whatsapp: prefix."""
-        # Using test phone number with whatsapp prefix
-        phone_number = "whatsapp:+61400000000"
+        # Add whatsapp: prefix to test phone number
+        phone_number = f"whatsapp:{test_phone_number}"
 
         # Fetch customer metadata
         customer_metadata = await customer_lookup_client.fetch_customer_metadata(phone_number)
@@ -93,14 +99,11 @@ class TestCustomerLookupClient:
 
     @pytest.mark.asyncio
     async def test_fetch_customer_metadata_validates_response(
-        self, customer_lookup_client
+        self, customer_lookup_client, test_phone_number
     ):
         """Test that response is properly validated as CustomerMetadata model."""
-        # Using test phone number
-        phone_number = "+61400000000"
-
         # Fetch customer metadata
-        customer_metadata = await customer_lookup_client.fetch_customer_metadata(phone_number)
+        customer_metadata = await customer_lookup_client.fetch_customer_metadata(test_phone_number)
 
         # Verify it's a proper Pydantic model with all required fields
         assert hasattr(customer_metadata, "customer_id")

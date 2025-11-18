@@ -14,5 +14,9 @@
   {
     "ParameterKey": "CustomerDataKey",
     "ParameterValue": "customers.json"
+  },
+  {
+    "ParameterKey": "WunseApiBaseUrl",
+    "ParameterValue": "https://whnfvsybeceipdwyyeuk.supabase.co/functions/v1"
   }
 ]

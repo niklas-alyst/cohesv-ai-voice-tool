@@ -478,8 +478,25 @@ secrets-create-openai-api-key: secrets-check
 		--tags Key=Environment,Value=$(ENV) Key=Service,Value=ai-voice-tool
 	@echo "✓ OpenAI API Key secret created: $(ENV)/openai/api-key"
 
+# Create Wunse API Key secret in AWS Secrets Manager
+secrets-create-wunse-api-key: secrets-check
+	@echo "Creating Wunse API Key secret for environment: $(ENV)"
+	@WUNSE_API_KEY=$$(grep -E '^WUNSE_API_KEY=' voice-parser/.env | cut -d '=' -f2-); \
+	if [ -z "$$WUNSE_API_KEY" ] || [ "$$WUNSE_API_KEY" = "your-wunse-api-key-here" ]; then \
+		echo "ERROR: WUNSE_API_KEY not set in voice-parser/.env or still has placeholder value"; \
+		exit 1; \
+	fi; \
+	aws secretsmanager create-secret \
+		--region $(REGION) \
+		--profile $(PROFILE) \
+		--name "$(ENV)/wunse/api-key" \
+		--description "Wunse API Key for $(ENV) environment" \
+		--secret-string "$$WUNSE_API_KEY" \
+		--tags Key=Environment,Value=$(ENV) Key=Service,Value=ai-voice-tool
+	@echo "✓ Wunse API Key secret created: $(ENV)/wunse/api-key"
+
 # Create all secrets
-secrets-create: secrets-create-twilio-account-sid secrets-create-twilio-auth-token secrets-create-openai-api-key
+secrets-create: secrets-create-twilio-account-sid secrets-create-twilio-auth-token secrets-create-openai-api-key secrets-create-wunse-api-key
 	@echo "✓ All secrets created for environment: $(ENV)"
 
 # Update Twilio Account SID secret in AWS Secrets Manager
@@ -527,8 +544,23 @@ secrets-update-openai-api-key: secrets-check
 		--secret-string "$$OPENAI_API_KEY"
 	@echo "✓ OpenAI API Key secret updated: $(ENV)/openai/api-key"
 
+# Update Wunse API Key secret in AWS Secrets Manager
+secrets-update-wunse-api-key: secrets-check
+	@echo "Updating Wunse API Key secret for environment: $(ENV)"
+	@WUNSE_API_KEY=$$(grep -E '^WUNSE_API_KEY=' voice-parser/.env | cut -d '=' -f2-); \
+	if [ -z "$$WUNSE_API_KEY" ] || [ "$$WUNSE_API_KEY" = "your-wunse-api-key-here" ]; then \
+		echo "ERROR: WUNSE_API_KEY not set in voice-parser/.env or still has placeholder value"; \
+		exit 1; \
+	fi; \
+	aws secretsmanager update-secret \
+		--region $(REGION) \
+		--profile $(PROFILE) \
+		--secret-id "$(ENV)/wunse/api-key" \
+		--secret-string "$$WUNSE_API_KEY"
+	@echo "✓ Wunse API Key secret updated: $(ENV)/wunse/api-key"
+
 # Update all secrets
-secrets-update: secrets-update-twilio-account-sid secrets-update-twilio-auth-token secrets-update-openai-api-key
+secrets-update: secrets-update-twilio-account-sid secrets-update-twilio-auth-token secrets-update-openai-api-key secrets-update-wunse-api-key
 	@echo "✓ All secrets updated for environment: $(ENV)"
 
 # Get secret ARNs (useful for CloudFormation parameters)
@@ -548,6 +580,14 @@ secrets-get-arns:
 		--region $(REGION) \
 		--profile $(PROFILE) \
 		--secret-id "$(ENV)/openai/api-key" \
+		--query 'ARN' \
+		--output text 2>/dev/null || echo "  (not found - run 'make secrets-create' first)"
+	@echo ""
+	@echo "WunseApiKeySecretArn:"
+	@aws secretsmanager describe-secret \
+		--region $(REGION) \
+		--profile $(PROFILE) \
+		--secret-id "$(ENV)/wunse/api-key" \
 		--query 'ARN' \
 		--output text 2>/dev/null || echo "  (not found - run 'make secrets-create' first)"
 

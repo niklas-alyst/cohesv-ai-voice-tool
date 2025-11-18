@@ -23,6 +23,12 @@ Parameters:
   TwilioAuthTokenSecretArn:
     Type: String
     Description: ARN of the Secrets Manager secret containing the Twilio auth token.
+  WunseApiKeySecretArn:
+    Type: String
+    Description: ARN of the Secrets Manager secret holding the Wunse API key.
+  WunseApiBaseUrl:
+    Type: String
+    Description: Base URL for the Wunse API (e.g. https://api.wunse.com).
 
 Resources:
   WebhookLogGroup:
@@ -85,6 +91,8 @@ Resources:
             Fn::ImportValue:
               Fn::Sub: '${EnvironmentName}-CustomerLookupFunctionName'
           TWILIO_AUTH_TOKEN: !Sub '{{resolve:secretsmanager:${TwilioAuthTokenSecretArn}:SecretString}}'
+          WUNSE_API_KEY: !Sub '{{resolve:secretsmanager:${WunseApiKeySecretArn}:SecretString}}'
+          WUNSE_API_BASE_URL: !Ref WunseApiBaseUrl
       Tags:
         - Key: Environment
           Value: !Ref EnvironmentName

@@ -32,6 +32,12 @@ Parameters:
   OpenAIApiKeySecretArn:
     Type: String
     Description: ARN of the Secrets Manager secret holding the OpenAI API key.
+  WunseApiKeySecretArn:
+    Type: String
+    Description: ARN of the Secrets Manager secret holding the Wunse API key.
+  WunseApiBaseUrl:
+    Type: String
+    Description: Base URL for the Wunse API (e.g. https://api.wunse.com).
 
 Resources:
   VoiceParserLogGroup:
@@ -105,6 +111,8 @@ Resources:
           TWILIO_ACCOUNT_SID: !Sub '{{resolve:secretsmanager:${TwilioAccountSidSecretArn}:SecretString}}'
           TWILIO_AUTH_TOKEN: !Sub '{{resolve:secretsmanager:${TwilioAuthTokenSecretArn}:SecretString}}'
           OPENAI_API_KEY: !Sub '{{resolve:secretsmanager:${OpenAIApiKeySecretArn}:SecretString}}'
+          WUNSE_API_KEY: !Sub '{{resolve:secretsmanager:${WunseApiKeySecretArn}:SecretString}}'
+          WUNSE_API_BASE_URL: !Ref WunseApiBaseUrl
       Tags:
         - Key: Environment
           Value: !Ref EnvironmentName

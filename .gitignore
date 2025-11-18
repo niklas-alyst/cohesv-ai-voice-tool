@@ -7,6 +7,7 @@ instructions
 # Environment files (secrets)
 .env
 **/.env
+**/.env.test
 *.env.local
 *.secrets
 tests/.env.e2e
