@@ -80,7 +80,7 @@ def s3_client(e2e_config: Dict[str, Any]):
     return session.client("s3")
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 async def http_client():
     """Async HTTP client for API requests."""
     async with httpx.AsyncClient(timeout=30.0) as client:
