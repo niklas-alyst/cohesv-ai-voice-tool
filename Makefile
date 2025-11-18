@@ -605,6 +605,18 @@ push-voice-parser: ecr-login build-voice-parser
 deploy-voice-parser: push-voice-parser
 	@echo "Deploying voice-parser Lambda via CloudFormation..."
 	./infrastructure/deploy.sh $(ENV) voice-parser
+	@echo "Forcing Lambda to update to latest image..."
+	@aws lambda update-function-code \
+		--function-name $(ENV)-voice-parser \
+		--image-uri $(VOICE_PARSER_REPO):$(TAG) \
+		--region $(REGION) \
+		--profile $(PROFILE) \
+		--query '[FunctionName,LastModified]' \
+		--output table > /dev/null
+	@aws lambda wait function-updated \
+		--function-name $(ENV)-voice-parser \
+		--region $(REGION) \
+		--profile $(PROFILE)
 	@echo "✓ Voice parser deployed successfully"
 
 # --- Webhook Handler ---
@@ -621,6 +633,18 @@ push-webhook-handler: ecr-login build-webhook-handler
 deploy-webhook-handler: push-webhook-handler
 	@echo "Deploying webhook-handler Lambda via CloudFormation..."
 	./infrastructure/deploy.sh $(ENV) webhook-handler
+	@echo "Forcing Lambda to update to latest image..."
+	@aws lambda update-function-code \
+		--function-name $(ENV)-webhook-handler \
+		--image-uri $(WEBHOOK_HANDLER_REPO):$(TAG) \
+		--region $(REGION) \
+		--profile $(PROFILE) \
+		--query '[FunctionName,LastModified]' \
+		--output table > /dev/null
+	@aws lambda wait function-updated \
+		--function-name $(ENV)-webhook-handler \
+		--region $(REGION) \
+		--profile $(PROFILE)
 	@echo "✓ Webhook handler deployed successfully"
 
 # --- Data API Server ---
@@ -637,6 +661,18 @@ push-data-api: ecr-login build-data-api
 deploy-data-api: push-data-api
 	@echo "Deploying data-api Lambda via CloudFormation..."
 	./infrastructure/deploy.sh $(ENV) data-api
+	@echo "Forcing Lambda to update to latest image..."
+	@aws lambda update-function-code \
+		--function-name $(ENV)-data-api \
+		--image-uri $(DATA_API_REPO):$(TAG) \
+		--region $(REGION) \
+		--profile $(PROFILE) \
+		--query '[FunctionName,LastModified]' \
+		--output table > /dev/null
+	@aws lambda wait function-updated \
+		--function-name $(ENV)-data-api \
+		--region $(REGION) \
+		--profile $(PROFILE)
 	@echo "✓ Data API deployed successfully"
 
 # --- Data API Authorizer ---
