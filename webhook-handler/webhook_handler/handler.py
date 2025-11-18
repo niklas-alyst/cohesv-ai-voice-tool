@@ -70,7 +70,21 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     # Construct the full URL that Twilio requested
     # API Gateway provides this information in the event object
-    request_url = f"https://{event['requestContext']['domainName']}{event['requestContext']['path']}"
+    # Support both API Gateway v1 (REST API) and v2 (HTTP API) formats
+    domain = event['requestContext']['domainName']
+
+    # HTTP API v2 format: path is in requestContext.http.path or use rawPath
+    if 'http' in event['requestContext']:
+        # HTTP API v2 format
+        path = event['requestContext']['http']['path']
+    elif 'path' in event['requestContext']:
+        # REST API v1 format
+        path = event['requestContext']['path']
+    else:
+        # Fallback to rawPath if available
+        path = event.get('rawPath', '/webhook')
+
+    request_url = f"https://{domain}{path}"
 
     # Include query string parameters if present
     query_params = event.get("queryStringParameters")
@@ -85,6 +99,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         status_code = 400
         logger.error(f"{err_msg}, returning {status_code}")
         return {"statusCode": status_code, "body": json.dumps({"error": err_msg})}
+
+    # Decode base64 encoded body if necessary (HTTP API v2 may encode the body)
+    if event.get("isBase64Encoded", False):
+        import base64
+        raw_body = base64.b64decode(raw_body).decode("utf-8")
 
     # The validator needs the POST parameters as a dictionary
     # IMPORTANT: keep_blank_values=True is required to preserve empty parameters like Body=
