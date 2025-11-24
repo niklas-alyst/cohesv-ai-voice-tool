@@ -16,6 +16,7 @@ def test_customer_lookup_settings_missing_variable(monkeypatch):
         CustomerLookupSettings()
 
 def test_s3_settings_valid(monkeypatch):
+    monkeypatch.delenv("AWS_PROFILE", raising=False)
     monkeypatch.setenv("AWS_REGION", "us-west-2")
     monkeypatch.setenv("S3_BUCKET_NAME", "test-s3-bucket")
     settings = S3Settings()

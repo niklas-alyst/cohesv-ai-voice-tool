@@ -16,8 +16,9 @@ def mock_boto3_session():
         yield mock_session, mock_client # Yield both the session mock and the client mock
 
 @pytest.fixture
-def mock_s3_settings():
+def mock_s3_settings(monkeypatch):
     """Fixture to provide mock S3Settings."""
+    monkeypatch.delenv("AWS_PROFILE", raising=False)
     return S3Settings(aws_region="us-east-1", s3_bucket_name="test-bucket")
 
 @pytest.mark.asyncio
@@ -30,6 +31,7 @@ async def test_s3_service_init_with_settings(mock_boto3_session, mock_s3_setting
 
 @pytest.mark.asyncio
 async def test_s3_service_init_without_settings(mock_boto3_session, monkeypatch):
+    monkeypatch.delenv("AWS_PROFILE", raising=False)
     mock_session, mock_client = mock_boto3_session
     monkeypatch.setenv("AWS_REGION", "us-west-2")
     monkeypatch.setenv("S3_BUCKET_NAME", "default-bucket")

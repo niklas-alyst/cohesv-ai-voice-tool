@@ -40,33 +40,34 @@ def setup_s3_bucket(s3_client, test_bucket_name):
     s3_client.create_bucket(Bucket=test_bucket_name)
 
     # Test files for company123, job-to-be-done
+    # Using realistic Twilio-style message IDs (SM + 32 hex chars)
     s3_client.put_object(
         Bucket=test_bucket_name,
-        Key="company123/job-to-be-done/task1_SM1_audio.ogg",
+        Key="company123/job-to-be-done/task1_SM1234567890abcdef1234567890abcdef_audio.ogg",
         Body=b"audio_content_1",
     )
     s3_client.put_object(
         Bucket=test_bucket_name,
-        Key="company123/job-to-be-done/task1_SM1_full_text.txt",
+        Key="company123/job-to-be-done/task1_SM1234567890abcdef1234567890abcdef_full_text.txt",
         Body=b"text_content_1",
     )
     s3_client.put_object(
         Bucket=test_bucket_name,
-        Key="company123/job-to-be-done/task2_SM2_audio.ogg",
+        Key="company123/job-to-be-done/task2_SM2234567890abcdef1234567890abcdef_audio.ogg",
         Body=b"audio_content_2",
     )
 
     # Test files for company123, knowledge-document
     s3_client.put_object(
         Bucket=test_bucket_name,
-        Key="company123/knowledge-document/doc1_SM3_full_text.txt",
+        Key="company123/knowledge-document/doc1_SM3234567890abcdef1234567890abcdef_full_text.txt",
         Body=b"doc_content_1",
     )
 
     # Test files for another_company, job-to-be-done
     s3_client.put_object(
         Bucket=test_bucket_name,
-        Key="another_company/job-to-be-done/taskA_SM4_audio.ogg",
+        Key="another_company/job-to-be-done/taskA_SM4234567890abcdef1234567890abcdef_audio.ogg",
         Body=b"audio_content_A",
     )
 
@@ -116,15 +117,15 @@ class TestIntegrationListFiles:
         assert "files" in data
         assert len(data["files"]) == 3
         assert any(
-            f["key"] == "company123/job-to-be-done/task1_SM1_audio.ogg"
+            f["key"] == "company123/job-to-be-done/task1_SM1234567890abcdef1234567890abcdef_audio.ogg"
             for f in data["files"]
         )
         assert any(
-            f["key"] == "company123/job-to-be-done/task1_SM1_full_text.txt"
+            f["key"] == "company123/job-to-be-done/task1_SM1234567890abcdef1234567890abcdef_full_text.txt"
             for f in data["files"]
         )
         assert any(
-            f["key"] == "company123/job-to-be-done/task2_SM2_audio.ogg"
+            f["key"] == "company123/job-to-be-done/task2_SM2234567890abcdef1234567890abcdef_audio.ogg"
             for f in data["files"]
         )
         assert data["nextContinuationToken"] is None
@@ -153,7 +154,7 @@ class TestIntegrationListFiles:
         data = response.json()
         assert "files" in data
         assert len(data["files"]) == 1
-        assert data["files"][0]["key"] == "another_company/job-to-be-done/taskA_SM4_audio.ogg"
+        assert data["files"][0]["key"] == "another_company/job-to-be-done/taskA_SM4234567890abcdef1234567890abcdef_audio.ogg"
 
 
 class TestIntegrationGetDownloadUrl:
@@ -161,7 +162,7 @@ class TestIntegrationGetDownloadUrl:
 
     def test_get_download_url_success(self, client, setup_s3_bucket):
         """Test successful generation of a presigned URL for an existing file."""
-        file_key = "company123/job-to-be-done/task1_SM1_audio.ogg"
+        file_key = "company123/job-to-be-done/task1_SM1234567890abcdef1234567890abcdef_audio.ogg"
         response = client.get(
             "/files/get-download-url", params={"key": file_key}
         )
@@ -187,7 +188,7 @@ class TestIntegrationGetDownloadUrl:
         # This test primarily checks that the S3 service correctly handles the key it receives.
         # FastAPI automatically URL-decodes query parameters, so we pass a "valid" key string.
         # The S3 client will then determine if it exists.
-        invalid_key = "company123/job-to-be-done/task1_SM1_audio.ogg/extra" # Not a valid S3 key
+        invalid_key = "company123/job-to-be-done/task1_SM1234567890abcdef1234567890abcdef_audio.ogg/extra" # Not a valid S3 key
         response = client.get(
             "/files/get-download-url", params={"key": invalid_key}
         )
@@ -213,19 +214,19 @@ class TestIntegrationListFilesWithOutputFormat:
         assert response.status_code == 200
         data = response.json()
         assert "message_ids" in data
-        assert len(data["message_ids"]) == 2  # SM1 and SM2
+        assert len(data["message_ids"]) == 2
 
         # Check message IDs are present
         message_ids = [msg["message_id"] for msg in data["message_ids"]]
-        assert "SM1" in message_ids
-        assert "SM2" in message_ids
+        assert "SM1234567890abcdef1234567890abcdef" in message_ids
+        assert "SM2234567890abcdef1234567890abcdef" in message_ids
 
         # Check file counts
         for msg in data["message_ids"]:
-            if msg["message_id"] == "SM1":
+            if msg["message_id"] == "SM1234567890abcdef1234567890abcdef":
                 assert msg["file_count"] == 2  # audio + full_text
                 assert msg["tag"] == "task1"
-            elif msg["message_id"] == "SM2":
+            elif msg["message_id"] == "SM2234567890abcdef1234567890abcdef":
                 assert msg["file_count"] == 1  # audio only
                 assert msg["tag"] == "task2"
 
@@ -253,12 +254,12 @@ class TestIntegrationByMessage:
         """Test successful retrieval of all artifacts for a message."""
         response = client.get(
             "/files/by-message",
-            params={"company_id": "company123", "message_id": "SM1"},
+            params={"company_id": "company123", "message_id": "SM1234567890abcdef1234567890abcdef"},
         )
 
         assert response.status_code == 200
         data = response.json()
-        assert data["message_id"] == "SM1"
+        assert data["message_id"] == "SM1234567890abcdef1234567890abcdef"
         assert data["company_id"] == "company123"
         assert data["intent"] == "job-to-be-done"
         assert data["tag"] == "task1"
@@ -271,19 +272,19 @@ class TestIntegrationByMessage:
 
         # Verify keys are correct
         keys = [f["key"] for f in data["files"]]
-        assert any("SM1_audio.ogg" in k for k in keys)
-        assert any("SM1_full_text.txt" in k for k in keys)
+        assert any("SM1234567890abcdef1234567890abcdef_audio.ogg" in k for k in keys)
+        assert any("SM1234567890abcdef1234567890abcdef_full_text.txt" in k for k in keys)
 
     def test_get_files_by_message_different_intent(self, client, setup_s3_bucket):
         """Test retrieval from knowledge-document intent."""
         response = client.get(
             "/files/by-message",
-            params={"company_id": "company123", "message_id": "SM3"},
+            params={"company_id": "company123", "message_id": "SM3234567890abcdef1234567890abcdef"},
         )
 
         assert response.status_code == 200
         data = response.json()
-        assert data["message_id"] == "SM3"
+        assert data["message_id"] == "SM3234567890abcdef1234567890abcdef"
         assert data["intent"] == "knowledge-document"
         assert data["tag"] == "doc1"
         assert len(data["files"]) == 1
@@ -301,10 +302,10 @@ class TestIntegrationByMessage:
 
     def test_get_files_by_message_different_company(self, client, setup_s3_bucket):
         """Test that message from different company returns 404."""
-        # SM4 belongs to another_company, not company123
+        # SM4... belongs to another_company, not company123
         response = client.get(
             "/files/by-message",
-            params={"company_id": "company123", "message_id": "SM4"},
+            params={"company_id": "company123", "message_id": "SM4234567890abcdef1234567890abcdef"},
         )
 
         assert response.status_code == 404
@@ -314,10 +315,10 @@ class TestIntegrationByMessage:
         """Test that message is found when using correct company."""
         response = client.get(
             "/files/by-message",
-            params={"company_id": "another_company", "message_id": "SM4"},
+            params={"company_id": "another_company", "message_id": "SM4234567890abcdef1234567890abcdef"},
         )
 
         assert response.status_code == 200
         data = response.json()
-        assert data["message_id"] == "SM4"
+        assert data["message_id"] == "SM4234567890abcdef1234567890abcdef"
         assert data["company_id"] == "another_company"
