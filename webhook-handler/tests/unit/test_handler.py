@@ -81,7 +81,7 @@ def test_handler_successful_processing(mocker, api_gateway_event, twilio_auth_to
     response = lambda_handler(api_gateway_event, None)
 
     assert response["statusCode"] == 200
-    assert json.loads(response["body"])["status"] == "received"
+    assert response["body"] == ""  # Twilio expects empty body for success
 
     # Verify SQS was called correctly
     mock_sqs_client.send_message.assert_called_once()
