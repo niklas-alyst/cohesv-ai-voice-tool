@@ -143,14 +143,13 @@ async def process_message(payload: TwilioWebhookPayload) -> Dict[str, Any]:
         )
         s3_keys["text_summary"] = s3_text_summary_key
 
-        # Send structured analysis back to user
+        # Send structured analysis back to user (with truncation if needed for WhatsApp limit)
         logger.info(f"Sending structured analysis to {message_phonenumber}")
-        message_body = f"""Successfully ingested the following items:
-
-{formatted_text}
-
-Note: Replies to this message are treated as new requests.
-"""
+        message_body = structured_analysis.format_for_whatsapp(
+            tag=message_metadata.tag,
+            prefix="Successfully ingested the following items:\n\n",
+            suffix="\n\nNote: Replies to this message are treated as new requests.\n"
+        )
         analysis_response = await whatsapp_client.send_message(
             recipient_phone=message_phonenumber,
             body=message_body

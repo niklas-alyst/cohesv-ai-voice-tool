@@ -567,3 +567,208 @@ class TestProcessorIntegration:
                             assert "context" in analysis
                             assert "action_items" in analysis
                             assert isinstance(analysis["action_items"], list)
+
+    @pytest.mark.asyncio
+    async def test_whatsapp_message_truncation_jobs_to_be_done(self, text_payload):
+        """Test that long JobsToBeDone messages are truncated to fit WhatsApp's 1600 char limit"""
+        # Create a very long analysis that would exceed 1600 chars
+        long_context = "A" * 1500  # Long context to exceed limit
+        mock_customer_metadata = CustomerMetadata(
+            customer_id="test-customer-id",
+            company_id="test-company-id",
+            company_name="test-company"
+        )
+        mock_message_metadata = MessageMetadata(
+            intent=MessageIntent.JOB_TO_BE_DONE,
+            tag="long-job-test"
+        )
+        mock_analysis = JobsToBeDoneDocumentModel(
+            summary="This is the summary that should be kept",
+            job="Test job with long context",
+            context=long_context,
+            action_items=["Action item 1", "Action item 2", "Action item 3"]
+        )
+
+        # Verify full format exceeds limit
+        full_message = f"Successfully ingested the following items:\n\n{mock_analysis.format()}\n\nNote: Replies to this message are treated as new requests.\n"
+        assert len(full_message) > 1600, f"Full message should exceed 1600 chars but is {len(full_message)}"
+
+        with patch('voice_parser.core.processor.CustomerLookupClient') as mock_customer_class:
+            mock_customer_instance = MagicMock()
+            mock_customer_instance.fetch_customer_metadata = AsyncMock(return_value=mock_customer_metadata)
+            mock_customer_class.return_value = mock_customer_instance
+
+            with patch('voice_parser.core.processor.TwilioWhatsAppClient') as mock_whatsapp_class:
+                mock_whatsapp_instance = MagicMock()
+                mock_whatsapp_instance.send_message = AsyncMock()
+                mock_whatsapp_class.return_value = mock_whatsapp_instance
+
+                with patch('voice_parser.core.processor.S3Service') as mock_s3_class:
+                    mock_s3_instance = MagicMock()
+                    mock_s3_instance.upload = AsyncMock(side_effect=[
+                        "test-company/job-to-be-done/long-job-test_MSG123/full_text.txt",
+                        "test-company/job-to-be-done/long-job-test_MSG123/text_summary.txt"
+                    ])
+                    mock_s3_class.return_value = mock_s3_instance
+
+                    with patch('voice_parser.core.processor.LLMClient') as mock_llm_class:
+                        mock_llm_instance = MagicMock()
+                        mock_llm_instance.extract_message_metadata = AsyncMock(return_value=mock_message_metadata)
+                        mock_llm_instance.structure_full_text = AsyncMock(return_value=mock_analysis)
+                        mock_llm_class.return_value = mock_llm_instance
+
+                        result = await process_message(text_payload)
+
+                        assert result["status"] == "success"
+
+                        # Verify WhatsApp message was truncated
+                        assert mock_whatsapp_instance.send_message.call_count == 2
+                        second_call = mock_whatsapp_instance.send_message.call_args_list[1]
+                        sent_body = second_call.kwargs["body"]
+
+                        # Message should be under 1600 chars
+                        assert len(sent_body) <= 1600, f"Sent message should be <= 1600 chars but is {len(sent_body)}"
+
+                        # Truncated format should include summary and action items but not full context
+                        assert "*Summary:*" in sent_body
+                        assert "This is the summary that should be kept" in sent_body
+                        assert "*Action Items:*" in sent_body
+                        assert "Action item 1" in sent_body
+                        assert "Rest of job information truncated" in sent_body
+                        # Context should NOT be in truncated version
+                        assert long_context not in sent_body
+
+    @pytest.mark.asyncio
+    async def test_whatsapp_message_truncation_knowledge_document(self, text_payload):
+        """Test that long KnowledgeDocument messages are truncated to fit WhatsApp's 1600 char limit"""
+        # Create a very long analysis that would exceed 1600 chars
+        long_context = "B" * 1500  # Long context to exceed limit
+        mock_customer_metadata = CustomerMetadata(
+            customer_id="test-customer-id",
+            company_id="test-company-id",
+            company_name="test-company"
+        )
+        mock_message_metadata = MessageMetadata(
+            intent=MessageIntent.KNOWLEDGE_DOCUMENT,
+            tag="long-knowledge-test"
+        )
+        mock_analysis = KnowledgeDocumentModel(
+            title="Important Knowledge Title",
+            summary="This is the summary that should be kept in truncated version",
+            context=long_context,
+        )
+
+        # Verify full format exceeds limit
+        full_message = f"Successfully ingested the following items:\n\n{mock_analysis.format()}\n\nNote: Replies to this message are treated as new requests.\n"
+        assert len(full_message) > 1600, f"Full message should exceed 1600 chars but is {len(full_message)}"
+
+        with patch('voice_parser.core.processor.CustomerLookupClient') as mock_customer_class:
+            mock_customer_instance = MagicMock()
+            mock_customer_instance.fetch_customer_metadata = AsyncMock(return_value=mock_customer_metadata)
+            mock_customer_class.return_value = mock_customer_instance
+
+            with patch('voice_parser.core.processor.TwilioWhatsAppClient') as mock_whatsapp_class:
+                mock_whatsapp_instance = MagicMock()
+                mock_whatsapp_instance.send_message = AsyncMock()
+                mock_whatsapp_class.return_value = mock_whatsapp_instance
+
+                with patch('voice_parser.core.processor.S3Service') as mock_s3_class:
+                    mock_s3_instance = MagicMock()
+                    mock_s3_instance.upload = AsyncMock(side_effect=[
+                        "test-company/knowledge-document/long-knowledge-test_MSG123/full_text.txt",
+                        "test-company/knowledge-document/long-knowledge-test_MSG123/text_summary.txt"
+                    ])
+                    mock_s3_class.return_value = mock_s3_instance
+
+                    with patch('voice_parser.core.processor.LLMClient') as mock_llm_class:
+                        mock_llm_instance = MagicMock()
+                        mock_llm_instance.extract_message_metadata = AsyncMock(return_value=mock_message_metadata)
+                        mock_llm_instance.structure_full_text = AsyncMock(return_value=mock_analysis)
+                        mock_llm_class.return_value = mock_llm_instance
+
+                        result = await process_message(text_payload)
+
+                        assert result["status"] == "success"
+
+                        # Verify WhatsApp message was truncated
+                        assert mock_whatsapp_instance.send_message.call_count == 2
+                        second_call = mock_whatsapp_instance.send_message.call_args_list[1]
+                        sent_body = second_call.kwargs["body"]
+
+                        # Message should be under 1600 chars
+                        assert len(sent_body) <= 1600, f"Sent message should be <= 1600 chars but is {len(sent_body)}"
+
+                        # Truncated format should include title and summary but not full context
+                        assert "*Title:*" in sent_body
+                        assert "Important Knowledge Title" in sent_body
+                        assert "*Summary:*" in sent_body
+                        assert "This is the summary that should be kept" in sent_body
+                        assert "Rest of knowledge document truncated" in sent_body
+                        # Context should NOT be in truncated version
+                        assert long_context not in sent_body
+
+    @pytest.mark.asyncio
+    async def test_whatsapp_message_fallback_to_minimal(self, text_payload):
+        """Test that extremely long messages fall back to minimal confirmation"""
+        # Create an analysis with very long summary and action items that even truncated exceeds limit
+        very_long_summary = "C" * 800
+        very_long_items = ["D" * 200 for _ in range(5)]
+
+        mock_customer_metadata = CustomerMetadata(
+            customer_id="test-customer-id",
+            company_id="test-company-id",
+            company_name="test-company"
+        )
+        mock_message_metadata = MessageMetadata(
+            intent=MessageIntent.JOB_TO_BE_DONE,
+            tag="extreme-long-test"
+        )
+        mock_analysis = JobsToBeDoneDocumentModel(
+            summary=very_long_summary,
+            job="Test job",
+            context="Some context",
+            action_items=very_long_items
+        )
+
+        # Verify even truncated format exceeds limit
+        truncated_message = f"Successfully ingested the following items:\n\n{mock_analysis.format_truncated()}\n\nNote: Replies to this message are treated as new requests.\n"
+        assert len(truncated_message) > 1600, f"Truncated message should exceed 1600 chars but is {len(truncated_message)}"
+
+        with patch('voice_parser.core.processor.CustomerLookupClient') as mock_customer_class:
+            mock_customer_instance = MagicMock()
+            mock_customer_instance.fetch_customer_metadata = AsyncMock(return_value=mock_customer_metadata)
+            mock_customer_class.return_value = mock_customer_instance
+
+            with patch('voice_parser.core.processor.TwilioWhatsAppClient') as mock_whatsapp_class:
+                mock_whatsapp_instance = MagicMock()
+                mock_whatsapp_instance.send_message = AsyncMock()
+                mock_whatsapp_class.return_value = mock_whatsapp_instance
+
+                with patch('voice_parser.core.processor.S3Service') as mock_s3_class:
+                    mock_s3_instance = MagicMock()
+                    mock_s3_instance.upload = AsyncMock(side_effect=[
+                        "test-company/job-to-be-done/extreme-long-test_MSG123/full_text.txt",
+                        "test-company/job-to-be-done/extreme-long-test_MSG123/text_summary.txt"
+                    ])
+                    mock_s3_class.return_value = mock_s3_instance
+
+                    with patch('voice_parser.core.processor.LLMClient') as mock_llm_class:
+                        mock_llm_instance = MagicMock()
+                        mock_llm_instance.extract_message_metadata = AsyncMock(return_value=mock_message_metadata)
+                        mock_llm_instance.structure_full_text = AsyncMock(return_value=mock_analysis)
+                        mock_llm_class.return_value = mock_llm_instance
+
+                        result = await process_message(text_payload)
+
+                        assert result["status"] == "success"
+
+                        # Verify WhatsApp message fell back to minimal
+                        assert mock_whatsapp_instance.send_message.call_count == 2
+                        second_call = mock_whatsapp_instance.send_message.call_args_list[1]
+                        sent_body = second_call.kwargs["body"]
+
+                        # Message should be under 1600 chars
+                        assert len(sent_body) <= 1600, f"Sent message should be <= 1600 chars but is {len(sent_body)}"
+
+                        # Should contain minimal confirmation with tag
+                        assert "Successfully uploaded: extreme-long-test" in sent_body

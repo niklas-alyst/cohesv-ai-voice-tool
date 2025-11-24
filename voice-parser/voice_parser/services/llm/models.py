@@ -60,9 +60,16 @@ Be concise and accurate in your classification."""
 
 class StructuredDocumentModel(abc.ABC, BaseModel):
 
+    WHATSAPP_CHAR_LIMIT: int = 1600
+
     @abc.abstractmethod
     def format(self) -> str:
         """Create human-readable format"""
+        pass
+
+    @abc.abstractmethod
+    def format_truncated(self) -> str:
+        """Create truncated format for WhatsApp when full format exceeds limit"""
         pass
 
     @classmethod
@@ -70,6 +77,26 @@ class StructuredDocumentModel(abc.ABC, BaseModel):
     def get_system_message(cls) -> str:
         """Get system message for how to structure document"""
         pass
+
+    def format_for_whatsapp(self, tag: str, prefix: str = "", suffix: str = "") -> str:
+        """Get WhatsApp-safe message, truncating if necessary.
+
+        Returns formatted message that fits within WhatsApp's character limit.
+        Falls back to truncated format, then minimal confirmation if needed.
+        """
+        # Try full format first
+        full_message = f"{prefix}{self.format()}{suffix}"
+        if len(full_message) <= self.WHATSAPP_CHAR_LIMIT:
+            return full_message
+
+        # Try truncated format
+        truncated_message = f"{prefix}{self.format_truncated()}{suffix}"
+        if len(truncated_message) <= self.WHATSAPP_CHAR_LIMIT:
+            return truncated_message
+
+        # Fallback to minimal confirmation
+        minimal = f"Successfully uploaded: {tag}"
+        return f"{prefix}{minimal}{suffix}" if len(f"{prefix}{minimal}{suffix}") <= self.WHATSAPP_CHAR_LIMIT else minimal
 
 class KnowledgeDocumentModel(StructuredDocumentModel): # TODO: replace fields with relevant structure
     title: str = Field(
@@ -94,7 +121,19 @@ class KnowledgeDocumentModel(StructuredDocumentModel): # TODO: replace fields wi
 """
         return formatted_text
 
-    @classmethod 
+    def format_truncated(self) -> str:
+        """Truncated format: Title and Summary only"""
+        return f"""*Title:*
+{self.title}
+
+*Summary:*
+{self.summary}
+
+---
+Rest of knowledge document truncated.
+"""
+
+    @classmethod
     def get_system_message(cls) -> str:
         return """You are assisting workers of trades businesses to extract structured knowledge information from voice notes and other sources.
 
@@ -133,6 +172,18 @@ class JobsToBeDoneDocumentModel(StructuredDocumentModel):
 {chr(10).join(f'• {item}' for item in self.action_items)}
 """
         return formatted_text
+
+    def format_truncated(self) -> str:
+        """Truncated format: Summary and Action Items only"""
+        return f"""*Summary:*
+{self.summary}
+
+*Action Items:*
+{chr(10).join(f'• {item}' for item in self.action_items)}
+
+---
+Rest of job information truncated.
+"""
 
     @classmethod
     def get_system_message(cls) -> str:
