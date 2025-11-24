@@ -7,7 +7,11 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from mangum import Mangum
 
-from ai_voice_shared.models import S3ListResponse
+from ai_voice_shared.models import (
+    S3ListResponse,
+    S3ListIdsResponse,
+    MessageArtifactsResponse,
+)
 from ai_voice_shared.services.s3_service import S3Service
 from ai_voice_shared.settings import S3Settings
 from .settings import Settings
@@ -67,18 +71,22 @@ async def health_check() -> dict[str, str]:
     return {"status": "healthy"}
 
 
-@app.get("/files/list", response_model=S3ListResponse)
+@app.get("/files/list")
 async def list_files(
     company_id: str = Query(..., description="Company identifier"),
     message_intent: str = Query(
         ...,
         description="Message intent: job-to-be-done, knowledge-document, or other",
     ),
+    output_format: str = Query(
+        "full",
+        description="Output format: 'full' for file details, 'ids' for message IDs only",
+    ),
     nextContinuationToken: str | None = Query(
         None,
         description="Continuation token from previous response for pagination",
     ),
-) -> S3ListResponse:
+) -> S3ListResponse | S3ListIdsResponse:
     """
     List files stored in S3 for a specific company and message intent.
 
@@ -88,15 +96,22 @@ async def list_files(
     Args:
         company_id: Company identifier for filtering
         message_intent: Message intent type (job-to-be-done, knowledge-document, other)
+        output_format: Output format - 'full' for file details, 'ids' for message IDs only
         nextContinuationToken: Optional pagination token from previous response
 
     Returns:
-        S3ListResponse containing:
-        - files: Array of S3ObjectMetadata (key, etag, size, last_modified)
-        - nextContinuationToken: Token for next page (null if no more pages)
+        If output_format='full':
+            S3ListResponse containing:
+            - files: Array of S3ObjectMetadata (key, etag, size, last_modified)
+            - nextContinuationToken: Token for next page (null if no more pages)
+
+        If output_format='ids':
+            S3ListIdsResponse containing:
+            - message_ids: Array of MessageIdSummary (message_id, tag, file_count)
+            - nextContinuationToken: Token for next page (null if no more pages)
 
     Raises:
-        HTTPException: 500 if S3 operation fails
+        HTTPException: 400 for invalid parameters, 500 if S3 operation fails
     """
     # Validate message_intent
     valid_intents = ["job-to-be-done", "knowledge-document", "other"]
@@ -106,15 +121,76 @@ async def list_files(
             detail=f"Invalid message_intent. Must be one of: {', '.join(valid_intents)}",
         )
 
-    try:
-        result = await s3_service.list_objects(
-            company_id=company_id,
-            message_intent=message_intent,
-            continuation_token=nextContinuationToken,
+    # Validate output_format
+    valid_formats = ["full", "ids"]
+    if output_format not in valid_formats:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid output_format. Must be one of: {', '.join(valid_formats)}",
         )
+
+    try:
+        if output_format == "ids":
+            result = await s3_service.list_objects_ids_only(
+                company_id=company_id,
+                message_intent=message_intent,
+                continuation_token=nextContinuationToken,
+            )
+        else:
+            result = await s3_service.list_objects(
+                company_id=company_id,
+                message_intent=message_intent,
+                continuation_token=nextContinuationToken,
+            )
         return result
     except Exception as e:
         logger.error(f"Error listing files: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.get("/files/by-message", response_model=MessageArtifactsResponse)
+async def get_files_by_message(
+    company_id: str = Query(..., description="Company identifier"),
+    message_id: str = Query(..., description="Twilio message SID"),
+) -> MessageArtifactsResponse:
+    """
+    Get all artifacts for a specific message.
+
+    This endpoint retrieves all files (audio, text, summary) associated with
+    a specific message ID. It searches across all message intents to find the message.
+
+    Args:
+        company_id: Company identifier
+        message_id: Twilio message SID (e.g., SM123456...)
+
+    Returns:
+        MessageArtifactsResponse containing:
+        - message_id: The message SID
+        - company_id: The company identifier
+        - intent: The message intent where the files were found
+        - tag: The message tag
+        - files: Array of MessageArtifact (key, type, etag, size, last_modified)
+
+    Raises:
+        HTTPException: 404 if message not found, 500 for other errors
+    """
+    try:
+        result = await s3_service.list_files_by_message_id(
+            company_id=company_id,
+            message_id=message_id,
+        )
+
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No artifacts found for message {message_id}",
+            )
+
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving message artifacts: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 

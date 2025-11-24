@@ -28,6 +28,41 @@ class S3ListResponse(BaseModel):
     nextContinuationToken: Optional[str] = None
 
 
+class MessageIdSummary(BaseModel):
+    """Summary of a message with its ID and metadata."""
+
+    message_id: str
+    tag: str
+    file_count: int
+
+
+class S3ListIdsResponse(BaseModel):
+    """Response from S3 list_objects operation in ids-only mode."""
+
+    message_ids: list[MessageIdSummary]
+    nextContinuationToken: Optional[str] = None
+
+
+class MessageArtifact(BaseModel):
+    """Artifact file for a specific message."""
+
+    key: str
+    type: Literal["audio", "full_text", "text_summary"]
+    etag: str
+    size: int
+    last_modified: str  # ISO 8601 format
+
+
+class MessageArtifactsResponse(BaseModel):
+    """Response containing all artifacts for a specific message."""
+
+    message_id: str
+    company_id: str
+    intent: str
+    tag: str
+    files: list[MessageArtifact]
+
+
 class TwilioWebhookPayload(BaseModel):
     """Twilio WhatsApp webhook payload.
 

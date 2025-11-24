@@ -62,16 +62,17 @@ See [data-api-authorizer/README.md](../data-api-authorizer/README.md) for more d
 
 ### 1. List Files
 
-List files stored in S3 for a specific company and message intent.
+List files stored in S3 for a specific company and message intent. Supports two output formats: full file details or message IDs only.
 
 **Endpoint:** `GET /files/list`
 
 **Query Parameters:**
 - `company_id` (required) - Company identifier
 - `message_intent` (required) - Message intent: `job-to-be-done`, `knowledge-document`, or `other`
+- `output_format` (optional) - Output format: `full` (default) or `ids`
 - `nextContinuationToken` (optional) - Pagination token from previous response
 
-**Response (200 OK):**
+**Response with `output_format=full` (default) - 200 OK:**
 ```json
 {
   "files": [
@@ -92,18 +93,105 @@ List files stored in S3 for a specific company and message intent.
 }
 ```
 
+**Response with `output_format=ids` - 200 OK:**
+```json
+{
+  "message_ids": [
+    {
+      "message_id": "SM1234567890",
+      "tag": "bathroom-renovation",
+      "file_count": 3
+    },
+    {
+      "message_id": "SM0987654321",
+      "tag": "leak-repair",
+      "file_count": 2
+    }
+  ],
+  "nextContinuationToken": null
+}
+```
+
 **Notes:**
-- Returns up to 1000 files per request
+- Returns up to 1000 files/messages per request
 - If `nextContinuationToken` is `null`, there are no more pages
-- The `etag` is critical for change detection
+- The `etag` is critical for change detection (full format only)
+- Use `output_format=ids` to get a quick list of all messages, then use `/files/by-message` to retrieve artifacts
 
 **Example Usage:**
 ```bash
+# Get full file listing (default)
 curl -X GET "https://api.example.com/files/list?company_id=company123&message_intent=job-to-be-done" \
+  -H "x-api-key: YOUR_API_KEY"
+
+# Get message IDs only
+curl -X GET "https://api.example.com/files/list?company_id=company123&message_intent=job-to-be-done&output_format=ids" \
   -H "x-api-key: YOUR_API_KEY"
 ```
 
-### 2. Get Download URL
+### 2. Get Files by Message
+
+Get all artifacts for a specific message ID. This endpoint searches across all message intents to find the message.
+
+**Endpoint:** `GET /files/by-message`
+
+**Query Parameters:**
+- `company_id` (required) - Company identifier
+- `message_id` (required) - Twilio message SID (e.g., SM1234567890)
+
+**Response (200 OK):**
+```json
+{
+  "message_id": "SM1234567890",
+  "company_id": "company123",
+  "intent": "job-to-be-done",
+  "tag": "bathroom-renovation",
+  "files": [
+    {
+      "key": "company123/job-to-be-done/bathroom-renovation_SM1234567890_audio.ogg",
+      "type": "audio",
+      "etag": "\"abc123\"",
+      "size": 123456,
+      "last_modified": "2025-11-05T14:30:01Z"
+    },
+    {
+      "key": "company123/job-to-be-done/bathroom-renovation_SM1234567890_full_text.txt",
+      "type": "full_text",
+      "etag": "\"def456\"",
+      "size": 1024,
+      "last_modified": "2025-11-05T14:30:02Z"
+    },
+    {
+      "key": "company123/job-to-be-done/bathroom-renovation_SM1234567890.text_summary.txt",
+      "type": "text_summary",
+      "etag": "\"ghi789\"",
+      "size": 512,
+      "last_modified": "2025-11-05T14:30:03Z"
+    }
+  ]
+}
+```
+
+**Error Response (404 Not Found):**
+```json
+{
+  "detail": "No artifacts found for message SM1234567890"
+}
+```
+
+**Notes:**
+- Returns all files associated with the message (audio, full_text, text_summary)
+- File `type` field indicates the artifact type: `audio`, `full_text`, or `text_summary`
+- The endpoint searches across all three message intents automatically
+- Returns 404 if no artifacts found for the given message_id and company_id
+
+**Example Usage:**
+```bash
+curl -X GET "https://api.example.com/files/by-message?company_id=company123&message_id=SM1234567890" \
+  -H "x-api-key: YOUR_API_KEY"
+```
+
+### 3. Get Download URL
 
 Generate a presigned URL for downloading a file directly from S3.
 
@@ -138,7 +226,7 @@ curl -X GET "https://api.example.com/files/get-download-url?key=company123%2Fjob
   -H "x-api-key: YOUR_API_KEY"
 ```
 
-### 3. Health Check
+### 4. Health Check
 
 Simple health check endpoint (no authentication required).
 
@@ -149,6 +237,27 @@ Simple health check endpoint (no authentication required).
 {
   "status": "healthy"
 }
+```
+
+## Typical Usage Workflow
+
+For external applications that want to retrieve and process all messages:
+
+```bash
+# 1. Get list of all message IDs for a company and intent
+curl -X GET "https://api.example.com/files/list?company_id=company123&message_intent=job-to-be-done&output_format=ids" \
+  -H "x-api-key: YOUR_API_KEY"
+
+# 2. For each message_id in the response, get all artifacts
+curl -X GET "https://api.example.com/files/by-message?company_id=company123&message_id=SM1234567890" \
+  -H "x-api-key: YOUR_API_KEY"
+
+# 3. For each file in the artifacts response, get download URL
+curl -X GET "https://api.example.com/files/get-download-url?key=company123%2Fjob-to-be-done%2Fbathroom-renovation_SM1234567890_audio.ogg" \
+  -H "x-api-key: YOUR_API_KEY"
+
+# 4. Download the file using the presigned URL
+curl -X GET "<presigned_url_from_step_3>" -o audio.ogg
 ```
 
 ## Development

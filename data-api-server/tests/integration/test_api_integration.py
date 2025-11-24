@@ -194,3 +194,130 @@ class TestIntegrationGetDownloadUrl:
         # Moto's S3 client might return 404 for non-existent keys, which is what we expect.
         assert response.status_code == 404
         assert response.json()["detail"] == "File not found"
+
+
+class TestIntegrationListFilesWithOutputFormat:
+    """Integration tests for the /files/list endpoint with output_format."""
+
+    def test_list_files_ids_format(self, client, setup_s3_bucket):
+        """Test listing files with output_format=ids."""
+        response = client.get(
+            "/files/list",
+            params={
+                "company_id": "company123",
+                "message_intent": "job-to-be-done",
+                "output_format": "ids",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "message_ids" in data
+        assert len(data["message_ids"]) == 2  # SM1 and SM2
+
+        # Check message IDs are present
+        message_ids = [msg["message_id"] for msg in data["message_ids"]]
+        assert "SM1" in message_ids
+        assert "SM2" in message_ids
+
+        # Check file counts
+        for msg in data["message_ids"]:
+            if msg["message_id"] == "SM1":
+                assert msg["file_count"] == 2  # audio + full_text
+                assert msg["tag"] == "task1"
+            elif msg["message_id"] == "SM2":
+                assert msg["file_count"] == 1  # audio only
+                assert msg["tag"] == "task2"
+
+    def test_list_files_full_format_explicit(self, client, setup_s3_bucket):
+        """Test listing files with output_format=full."""
+        response = client.get(
+            "/files/list",
+            params={
+                "company_id": "company123",
+                "message_intent": "job-to-be-done",
+                "output_format": "full",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "files" in data
+        assert len(data["files"]) == 3
+
+
+class TestIntegrationByMessage:
+    """Integration tests for the /files/by-message endpoint."""
+
+    def test_get_files_by_message_success(self, client, setup_s3_bucket):
+        """Test successful retrieval of all artifacts for a message."""
+        response = client.get(
+            "/files/by-message",
+            params={"company_id": "company123", "message_id": "SM1"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["message_id"] == "SM1"
+        assert data["company_id"] == "company123"
+        assert data["intent"] == "job-to-be-done"
+        assert data["tag"] == "task1"
+        assert len(data["files"]) == 2  # audio + full_text
+
+        # Check file types
+        file_types = [f["type"] for f in data["files"]]
+        assert "audio" in file_types
+        assert "full_text" in file_types
+
+        # Verify keys are correct
+        keys = [f["key"] for f in data["files"]]
+        assert any("SM1_audio.ogg" in k for k in keys)
+        assert any("SM1_full_text.txt" in k for k in keys)
+
+    def test_get_files_by_message_different_intent(self, client, setup_s3_bucket):
+        """Test retrieval from knowledge-document intent."""
+        response = client.get(
+            "/files/by-message",
+            params={"company_id": "company123", "message_id": "SM3"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["message_id"] == "SM3"
+        assert data["intent"] == "knowledge-document"
+        assert data["tag"] == "doc1"
+        assert len(data["files"]) == 1
+        assert data["files"][0]["type"] == "full_text"
+
+    def test_get_files_by_message_not_found(self, client, setup_s3_bucket):
+        """Test that requesting a non-existent message returns 404."""
+        response = client.get(
+            "/files/by-message",
+            params={"company_id": "company123", "message_id": "SM999999"},
+        )
+
+        assert response.status_code == 404
+        assert "No artifacts found" in response.json()["detail"]
+
+    def test_get_files_by_message_different_company(self, client, setup_s3_bucket):
+        """Test that message from different company returns 404."""
+        # SM4 belongs to another_company, not company123
+        response = client.get(
+            "/files/by-message",
+            params={"company_id": "company123", "message_id": "SM4"},
+        )
+
+        assert response.status_code == 404
+        assert "No artifacts found" in response.json()["detail"]
+
+    def test_get_files_by_message_correct_company(self, client, setup_s3_bucket):
+        """Test that message is found when using correct company."""
+        response = client.get(
+            "/files/by-message",
+            params={"company_id": "another_company", "message_id": "SM4"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["message_id"] == "SM4"
+        assert data["company_id"] == "another_company"

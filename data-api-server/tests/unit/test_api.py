@@ -6,7 +6,14 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from ai_voice_shared.models import S3ListResponse, S3ObjectMetadata
+from ai_voice_shared.models import (
+    S3ListResponse,
+    S3ObjectMetadata,
+    S3ListIdsResponse,
+    MessageIdSummary,
+    MessageArtifactsResponse,
+    MessageArtifact,
+)
 # Removed: from data_api_server.main import app
 
 
@@ -238,3 +245,217 @@ class TestGetDownloadUrlEndpoint:
         # Verify the decoded key was passed to S3Service
         expected_key = "company 123/job-to-be-done/test file & stuff.ogg"
         mock_s3_service.generate_presigned_url.assert_called_once_with(expected_key)
+
+
+class TestListFilesWithOutputFormat:
+    """Tests for /files/list endpoint with output_format parameter."""
+
+    def test_list_files_with_ids_format(self, client, mock_s3_service):
+        """Test listing with output_format=ids."""
+        mock_s3_service.list_objects_ids_only = AsyncMock(
+            return_value=S3ListIdsResponse(
+                message_ids=[
+                    MessageIdSummary(
+                        message_id="SM123456",
+                        tag="bathroom-renovation",
+                        file_count=3,
+                    ),
+                    MessageIdSummary(
+                        message_id="SM789012",
+                        tag="leak-repair",
+                        file_count=2,
+                    ),
+                ],
+                nextContinuationToken=None,
+            )
+        )
+
+        response = client.get(
+            "/files/list",
+            params={
+                "company_id": "company123",
+                "message_intent": "job-to-be-done",
+                "output_format": "ids",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "message_ids" in data
+        assert len(data["message_ids"]) == 2
+        assert data["message_ids"][0]["message_id"] == "SM123456"
+        assert data["message_ids"][0]["tag"] == "bathroom-renovation"
+        assert data["message_ids"][0]["file_count"] == 3
+        assert data["nextContinuationToken"] is None
+
+        mock_s3_service.list_objects_ids_only.assert_called_once_with(
+            company_id="company123",
+            message_intent="job-to-be-done",
+            continuation_token=None,
+        )
+
+    def test_list_files_with_full_format(self, client, mock_s3_service):
+        """Test listing with output_format=full (default behavior)."""
+        mock_s3_service.list_objects = AsyncMock(
+            return_value=S3ListResponse(
+                files=[
+                    S3ObjectMetadata(
+                        key="company123/job-to-be-done/test_SM123_audio.ogg",
+                        etag='"abc123"',
+                        size=12345,
+                        last_modified="2025-11-05T14:30:01Z",
+                    )
+                ],
+                nextContinuationToken=None,
+            )
+        )
+
+        response = client.get(
+            "/files/list",
+            params={
+                "company_id": "company123",
+                "message_intent": "job-to-be-done",
+                "output_format": "full",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "files" in data
+        assert len(data["files"]) == 1
+
+        mock_s3_service.list_objects.assert_called_once_with(
+            company_id="company123",
+            message_intent="job-to-be-done",
+            continuation_token=None,
+        )
+
+    def test_list_files_default_format(self, client, mock_s3_service):
+        """Test that default output_format is 'full'."""
+        mock_s3_service.list_objects = AsyncMock(
+            return_value=S3ListResponse(files=[], nextContinuationToken=None)
+        )
+
+        response = client.get(
+            "/files/list",
+            params={"company_id": "company123", "message_intent": "job-to-be-done"},
+        )
+
+        assert response.status_code == 200
+        assert "files" in response.json()
+
+        # Should call list_objects (not list_objects_ids_only)
+        mock_s3_service.list_objects.assert_called_once()
+
+    def test_list_files_invalid_format(self, client):
+        """Test that invalid output_format returns 400."""
+        response = client.get(
+            "/files/list",
+            params={
+                "company_id": "company123",
+                "message_intent": "job-to-be-done",
+                "output_format": "invalid",
+            },
+        )
+
+        assert response.status_code == 400
+        assert "Invalid output_format" in response.json()["detail"]
+
+
+class TestByMessageEndpoint:
+    """Tests for /files/by-message endpoint."""
+
+    def test_get_files_by_message_success(self, client, mock_s3_service):
+        """Test successful retrieval of message artifacts."""
+        mock_s3_service.list_files_by_message_id = AsyncMock(
+            return_value=MessageArtifactsResponse(
+                message_id="SM123456",
+                company_id="company123",
+                intent="job-to-be-done",
+                tag="bathroom-renovation",
+                files=[
+                    MessageArtifact(
+                        key="company123/job-to-be-done/bathroom-renovation_SM123456_audio.ogg",
+                        type="audio",
+                        etag='"abc123"',
+                        size=123456,
+                        last_modified="2025-11-05T14:30:01Z",
+                    ),
+                    MessageArtifact(
+                        key="company123/job-to-be-done/bathroom-renovation_SM123456_full_text.txt",
+                        type="full_text",
+                        etag='"def456"',
+                        size=1024,
+                        last_modified="2025-11-05T14:30:02Z",
+                    ),
+                    MessageArtifact(
+                        key="company123/job-to-be-done/bathroom-renovation_SM123456.text_summary.txt",
+                        type="text_summary",
+                        etag='"ghi789"',
+                        size=512,
+                        last_modified="2025-11-05T14:30:03Z",
+                    ),
+                ],
+            )
+        )
+
+        response = client.get(
+            "/files/by-message",
+            params={"company_id": "company123", "message_id": "SM123456"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["message_id"] == "SM123456"
+        assert data["company_id"] == "company123"
+        assert data["intent"] == "job-to-be-done"
+        assert data["tag"] == "bathroom-renovation"
+        assert len(data["files"]) == 3
+        assert data["files"][0]["type"] == "audio"
+        assert data["files"][1]["type"] == "full_text"
+        assert data["files"][2]["type"] == "text_summary"
+
+        mock_s3_service.list_files_by_message_id.assert_called_once_with(
+            company_id="company123",
+            message_id="SM123456",
+        )
+
+    def test_get_files_by_message_not_found(self, client, mock_s3_service):
+        """Test that non-existent message returns 404."""
+        mock_s3_service.list_files_by_message_id = AsyncMock(return_value=None)
+
+        response = client.get(
+            "/files/by-message",
+            params={"company_id": "company123", "message_id": "SM999999"},
+        )
+
+        assert response.status_code == 404
+        assert "No artifacts found" in response.json()["detail"]
+
+    def test_get_files_by_message_missing_params(self, client):
+        """Test that missing required params returns 422."""
+        # Missing both params
+        response = client.get("/files/by-message")
+        assert response.status_code == 422
+
+        # Missing message_id
+        response = client.get("/files/by-message", params={"company_id": "company123"})
+        assert response.status_code == 422
+
+        # Missing company_id
+        response = client.get("/files/by-message", params={"message_id": "SM123456"})
+        assert response.status_code == 422
+
+    def test_get_files_by_message_s3_error(self, client, mock_s3_service):
+        """Test that S3 errors return 500."""
+        mock_s3_service.list_files_by_message_id = AsyncMock(
+            side_effect=Exception("S3 connection failed")
+        )
+
+        response = client.get(
+            "/files/by-message",
+            params={"company_id": "company123", "message_id": "SM123456"},
+        )
+
+        assert response.status_code == 500
+        assert response.json()["detail"] == "Internal server error"
