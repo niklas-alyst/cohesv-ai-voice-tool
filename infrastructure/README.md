@@ -1,17 +1,40 @@
 # AI Voice Tool CloudFormation Stacks
 
-This directory contains CloudFormation templates that codify the shared cloud infrastructure and the five Lambda-based microservices that compose the AI Voice Tool platform. Deploy the stacks in the order below so that cross-stack references resolve correctly.
+This directory contains CloudFormation templates that codify the shared cloud infrastructure and the four Lambda-based microservices that compose the AI Voice Tool platform. Deploy the stacks in the order below so that cross-stack references resolve correctly.
 
-## Deployment order
+## Quick Deployment Workflows
+
+Choose the workflow that matches your needs:
+
+### Code Changes Only (Most Common)
+When you've changed application code but not infrastructure:
+```bash
+make code-deploy ENV=dev    # Rebuilds images, pushes to ECR, auto-tags
+```
+
+### Infrastructure Changes Only
+When you've changed CloudFormation templates but not application code:
+```bash
+make infra-deploy ENV=dev   # Updates CF stacks without rebuilding images
+```
+
+### Full Deployment (First Time or Major Changes)
+For initial setup or when changing both code and infrastructure:
+```bash
+make deploy-infra ENV=dev   # ECR + images + all CF stacks
+```
+
+## Deployment Order (Manual)
+
+If deploying manually, follow this order:
 
 1. `ecr/template.yaml` &mdash; creates ECR repositories for all microservice container images with lifecycle policies.
 2. **Build and push data-api-authorizer image** &mdash; `make push-data-api-authorizer ENV=<env>` (required before shared stack)
 3. `shared/template.yaml` &mdash; creates the shared S3 bucket, SQS queue (plus DLQ), two HTTP API Gateway instances (one for the Twilio webhook, one for the data API), auto-generated API key, and data-api-authorizer Lambda.
-4. **Build and push remaining service images** &mdash; `make push-images ENV=<env>` (for customer-lookup, voice-parser, webhook-handler, data-api)
-5. `customer-lookup-server/template.yaml` &mdash; container-based Lambda that reads customer data from the shared bucket.
-6. `voice-parser/template.yaml` &mdash; SQS-triggered worker that writes artifacts to the shared bucket and invokes the lookup Lambda.
-7. `webhook-handler/template.yaml` &mdash; API Gateway backed Lambda that validates Twilio webhooks and publishes messages to SQS.
-8. `data-api-server/template.yaml` &mdash; API Gateway backed FastAPI Lambda that exposes read access to the shared bucket with API key authentication.
+4. **Build and push remaining service images** &mdash; `make push-images ENV=<env>` (for voice-parser, webhook-handler, data-api)
+5. `voice-parser/template.yaml` &mdash; SQS-triggered worker that writes artifacts to the shared bucket.
+6. `webhook-handler/template.yaml` &mdash; API Gateway backed Lambda that validates Twilio webhooks and publishes messages to SQS.
+7. `data-api-server/template.yaml` &mdash; API Gateway backed FastAPI Lambda that exposes read access to the shared bucket with API key authentication.
 
 Each stack exports ARNs, names, and URLs using `${EnvironmentName}-`-prefixed export names so other stacks can import them.
 
@@ -33,12 +56,6 @@ Secret values (API keys, auth tokens) are managed separately via AWS Secrets Man
 ### Shared stack (`shared/template.yaml`)
 - `EnvironmentName` &mdash; identifier used to namespace resources and export names (e.g. `dev`, `staging`, `prod`).
 - `VoiceDataBucketName` &mdash; globally-unique S3 bucket name used by every service (e.g. `cohesv-ai-voice-tool-dev`).
-
-### Customer lookup (`customer-lookup-server/template.yaml`)
-- `EnvironmentName`
-- `LambdaImageUri` &mdash; ECR image URI for the containerised Lambda.
-- `LambdaTimeoutSeconds` (default 30).
-- `CustomerDataKey` (default `customers.json`).
 
 ### Voice parser (`voice-parser/template.yaml`)
 - `EnvironmentName`
@@ -97,7 +114,6 @@ make push-data-api-authorizer ENV=dev
 make push-images ENV=dev
 
 # Step 5: Deploy service Lambdas
-./infrastructure/deploy.sh dev customer-lookup
 ./infrastructure/deploy.sh dev voice-parser
 ./infrastructure/deploy.sh dev webhook-handler
 ./infrastructure/deploy.sh dev data-api
@@ -131,24 +147,14 @@ aws cloudformation deploy \
   --parameter-overrides $PARAM_OVERRIDES
 
 # 3. Build and push Docker images
-make build-customer-lookup
-docker tag customer-lookup-server:latest $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/ai-voice-tool/$ENV/customer-lookup:latest
+make build-voice-parser
+docker tag voice-parser:latest $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/ai-voice-tool/$ENV/voice-parser:latest
 aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
-docker push $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/ai-voice-tool/$ENV/customer-lookup:latest
+docker push $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/ai-voice-tool/$ENV/voice-parser:latest
 
-# Repeat for other services...
+# Repeat for other services (webhook-handler, data-api, data-api-authorizer)...
 
-# 4. Customer lookup Lambda
-aws cloudformation deploy \
-  --region "$REGION" \
-  --stack-name "$ENV-ai-voice-customer-lookup" \
-  --template-file infrastructure/customer-lookup-server/template.yaml \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides \
-    $PARAM_OVERRIDES \
-    LambdaImageUri=$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/ai-voice-tool/$ENV/customer-lookup:latest
-
-# 5-7. Deploy remaining Lambda stacks (voice-parser, webhook-handler, data-api)
+# 4-6. Deploy Lambda stacks (voice-parser, webhook-handler, data-api)
 # See deploy.sh for complete examples with secret ARNs
 ```
 
@@ -172,7 +178,6 @@ make secrets-get-arns ENV=dev
 ECR repositories are namespaced by environment for isolation:
 - `ai-voice-tool/dev/voice-parser`
 - `ai-voice-tool/dev/webhook-handler`
-- `ai-voice-tool/dev/customer-lookup`
 - `ai-voice-tool/dev/data-api`
 - `ai-voice-tool/dev/data-api-authorizer`
 

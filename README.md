@@ -19,12 +19,12 @@ This platform receives WhatsApp messages (voice or text) via Twilio, processes t
 
 ## Architecture
 
-The system consists of five microservices deployed as containerized AWS Lambda functions:
+The system consists of four microservices deployed as containerized AWS Lambda functions:
 
 ### 1. Webhook Handler ([webhook-handler/](webhook-handler/))
 Entry point for incoming Twilio webhooks.
 - Validates Twilio signature (`X-Twilio-Signature`)
-- Checks sender authorization via customer-lookup service
+- Checks sender authorization via Wunse API
 - Enqueues validated payloads to SQS
 
 ### 2. Voice Parser ([voice-parser/](voice-parser/))
@@ -35,19 +35,13 @@ Asynchronous worker that processes messages from SQS.
 - Uploads artifacts to S3
 - Sends feedback to users via WhatsApp
 
-### 3. Customer Lookup Server ([customer-lookup-server/](customer-lookup-server/))
-Internal API for customer metadata retrieval.
-- Loads customer data from S3 (`customers.json`)
-- Provides authorization and company_id for data partitioning
-- Invoked by webhook-handler and voice-parser
-
-### 4. Data API Server ([data-api-server/](data-api-server/))
+### 3. Data API Server ([data-api-server/](data-api-server/))
 FastAPI-based REST API for accessing processed data.
 - Lists files by company and message intent
 - Generates presigned S3 URLs for downloads
 - API key authentication via Lambda authorizer on API Gateway
 
-### 5. Data API Authorizer ([data-api-authorizer/](data-api-authorizer/))
+### 4. Data API Authorizer ([data-api-authorizer/](data-api-authorizer/))
 Lambda authorizer for Data API authentication.
 - Validates `x-api-key` header against AWS Secrets Manager
 - Caches authorization decisions for 5 minutes
@@ -74,9 +68,9 @@ Common code shared across services:
 
 ```
 Twilio (WhatsApp) → API Gateway → Webhook Handler
-    → Customer Lookup (authorization)
+    → Wunse API (authorization)
     → SQS Queue → Voice Parser
-        → Customer Lookup (metadata)
+        → Wunse API (metadata)
         → Twilio API (download media)
         → OpenAI Whisper (transcribe)
         → OpenAI GPT (analyze & structure)
@@ -125,14 +119,12 @@ Files are organized by company and message intent:
 ai-voice-tool/
 ├── webhook-handler/           # Twilio webhook receiver
 ├── voice-parser/              # Message processing worker
-├── customer-lookup-server/    # Customer metadata API
 ├── data-api-server/           # REST API for data access
 ├── data-api-authorizer/       # API key validator for data-api
 ├── shared-lib/                # Common code and models
 ├── infrastructure/            # CloudFormation templates
 │   ├── ecr/                   # Container registry
 │   ├── shared/                # S3, SQS, API Gateways, Authorizer
-│   ├── customer-lookup-server/
 │   ├── voice-parser/
 │   ├── webhook-handler/
 │   ├── data-api-server/
@@ -174,28 +166,28 @@ See individual service README files for detailed setup instructions.
 
 ### Deployment
 
-Deployment uses CloudFormation and must be done in order:
+Deployment uses CloudFormation. Choose the workflow that matches your needs:
 
 ```bash
-# 1. Create secrets in AWS Secrets Manager
+# 1. Create secrets in AWS Secrets Manager (first time only)
 make secrets-create ENV=dev
 
-# 2. Deploy all infrastructure (including ECR, shared resources, and all services)
-# This command will deploy ECR repositories, shared resources, build and push Docker images,
-# and then deploy each Lambda service.
-make deploy-infra ENV=dev
+# 2. Choose your deployment scenario:
 
-# Or deploy individual components in order:
-# 2a. Deploy ECR repositories
-make deploy-ecr ENV=dev
-# 2b. Deploy shared infrastructure (S3, SQS, API Gateway)
-make deploy-shared ENV=dev
-# 2c. Build, push, and deploy individual Lambda services
-make deploy-customer-lookup ENV=dev
-make deploy-voice-parser ENV=dev
-make deploy-webhook-handler ENV=dev
-make deploy-data-api ENV=dev
+# CODE CHANGES ONLY (most common) - rebuild images and auto-tag
+make code-deploy ENV=dev
+
+# INFRASTRUCTURE CHANGES ONLY - update CF stacks without rebuilding images
+make infra-deploy ENV=dev
+
+# FULL DEPLOYMENT (first time or major changes)
+make deploy-infra ENV=dev
 ```
+
+**Tagging behavior:**
+- `code-deploy` automatically tags the commit with environment (e.g., `dev-2024-01-15-143022`)
+- Deploying to prod overwrites any dev tag on the same commit
+- Deploying to dev skips tagging if the commit is already tagged as prod
 
 See [infrastructure/README.md](infrastructure/README.md) for detailed deployment instructions.
 
@@ -242,7 +234,6 @@ See [infrastructure/SECRETS.md](infrastructure/SECRETS.md) for secrets managemen
 Each microservice is thoroughly documented:
 - [webhook-handler/README.md](webhook-handler/README.md)
 - [voice-parser/README.md](voice-parser/README.md)
-- [customer-lookup-server/README.md](customer-lookup-server/README.md)
 - [data-api-server/README.md](data-api-server/README.md)
 - [data-api-authorizer/README.md](data-api-authorizer/README.md)
 - [shared-lib/README.md](shared-lib/README.md)
@@ -304,21 +295,20 @@ These tests run locally without requiring AWS infrastructure.
 
 ### 2. Deploy to Dev Environment
 
-```bash
-# Deploy all infrastructure to dev. This includes deploying ECR, shared resources,
-# building and pushing Docker images, and deploying each Lambda service.
-make deploy-infra ENV=dev
+Choose the appropriate deployment command based on your changes:
 
-# Or deploy individual components in the following order:
-# 1. Deploy ECR repositories
-make deploy-ecr ENV=dev
-# 2. Deploy shared infrastructure (S3, SQS, API Gateway)
-make deploy-shared ENV=dev
-# 3. Build, push, and deploy individual Lambda services
-make deploy-customer-lookup ENV=dev
-make deploy-voice-parser ENV=dev
-make deploy-webhook-handler ENV=dev
-make deploy-data-api ENV=dev
+```bash
+# CODE CHANGES ONLY (most common)
+# Rebuilds all images, pushes to ECR, auto-tags commit
+make code-deploy ENV=dev
+
+# INFRASTRUCTURE CHANGES ONLY
+# Updates CloudFormation stacks without rebuilding images
+make infra-deploy ENV=dev
+
+# FULL DEPLOYMENT (first time or major changes)
+# ECR + images + all CF stacks
+make deploy-infra ENV=dev
 ```
 
 ### 3. Post-Deployment Verification
@@ -339,9 +329,14 @@ This runs:
 Once dev deployment is verified:
 
 ```bash
-# Deploy to production
+# For code changes
+make code-deploy ENV=prod
+
+# For full deployment
 make deploy-infra ENV=prod
 ```
+
+**Note**: When deploying the same commit to prod after dev, the dev tag is automatically replaced with a prod tag.
 
 ### Deployment Prerequisites
 

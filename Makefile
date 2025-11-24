@@ -25,6 +25,21 @@
 #     4. make test-post-deploy        # Run all e2e tests (service + system)
 #     5. Repeat for prod environment
 #
+#   QUICK DEPLOYMENT SCENARIOS:
+#     Code changes only (most common):
+#       make code-deploy ENV=dev      # Rebuild images, push to ECR, auto-tag with env
+#
+#     Infrastructure config changes only:
+#       make infra-deploy ENV=dev     # Update CF stacks without rebuilding images
+#
+#     Full deployment (first time or major changes):
+#       make deploy-infra ENV=dev     # ECR + images + all CF stacks
+#
+#   TAGGING BEHAVIOR:
+#     - code-deploy auto-tags with environment (dev-YYYY-MM-DD-HHMMSS or prod-...)
+#     - prod tags overwrite dev tags on same commit (prod takes priority)
+#     - dev tags do NOT overwrite prod tags (prevents downgrade)
+#
 #   What deploy-infra does automatically:
 #     - Deploys ECR repositories
 #     - Builds and pushes ALL Docker images (including authorizer)
@@ -79,10 +94,10 @@ DATA_API_AUTHORIZER_IMG := data-api-authorizer
 SHARED_LIB_SERVICES := voice-parser data-api-server webhook-handler
 UV_CACHE_DIR := $(CURDIR)/.uv-cache
 
-.PHONY: all build push-images ecr-login \
-	build-voice-parser push-voice-parser deploy-voice-parser \
-	build-webhook-handler push-webhook-handler deploy-webhook-handler \
-	build-data-api push-data-api deploy-data-api \
+.PHONY: all build push-images ecr-login code-deploy infra-deploy tag-deployment \
+	build-voice-parser push-voice-parser deploy-voice-parser deploy-voice-parser-cf \
+	build-webhook-handler push-webhook-handler deploy-webhook-handler deploy-webhook-handler-cf \
+	build-data-api push-data-api deploy-data-api deploy-data-api-cf \
 	build-data-api-authorizer push-data-api-authorizer \
 	deploy-infra deploy-ecr deploy-shared \
 	requirements-sync $(addprefix requirements-sync-,$(SHARED_LIB_SERVICES)) \
@@ -100,19 +115,53 @@ all: build
 lint: lint-voice-parser lint-webhook-handler lint-shared-lib lint-data-api lint-data-api-authorizer
 build: build-voice-parser build-webhook-handler build-data-api build-data-api-authorizer
 push-images: push-voice-parser push-webhook-handler push-data-api push-data-api-authorizer
-	@echo "Tagging deployment with git..."
-	@git tag -a "$(ENV)-$$(date +%Y-%m-%d-%H%M%S)" -m "Deployment to $(ENV) on $$(date '+%Y-%m-%d %H:%M:%S')"
-	@LATEST_TAG=$$(git tag --sort=-creatordate | grep "^$(ENV)-" | head -n 1); \
-	echo "✓ Created git tag: $$LATEST_TAG"; \
+	@echo "✓ All images pushed to ECR"
+
+# --- Quick Deployment Workflows ---
+# code-deploy: Push images and auto-tag (most common for code changes)
+code-deploy: push-images tag-deployment
+	@echo "✓ Code deployment complete for $(ENV)"
+
+# infra-deploy: Update CloudFormation stacks without rebuilding images
+infra-deploy: deploy-shared deploy-voice-parser-cf deploy-webhook-handler-cf deploy-data-api-cf
+	@echo "✓ Infrastructure deployment complete for $(ENV)"
+
+# tag-deployment: Environment-aware git tagging
+# - prod tags overwrite dev tags (prod takes priority)
+# - dev tags do NOT overwrite prod tags
+tag-deployment:
+	@echo "Tagging deployment for $(ENV)..."
+	@CURRENT_COMMIT=$$(git rev-parse HEAD); \
+	EXISTING_TAG=$$(git tag --points-at $$CURRENT_COMMIT 2>/dev/null | grep -E '^(dev|prod)-' | head -n 1); \
+	if [ -n "$$EXISTING_TAG" ]; then \
+		EXISTING_ENV=$$(echo "$$EXISTING_TAG" | cut -d'-' -f1); \
+		if [ "$$EXISTING_ENV" = "prod" ] && [ "$(ENV)" = "dev" ]; then \
+			echo "⚠️  Commit already tagged as prod ($$EXISTING_TAG), skipping dev tag"; \
+			exit 0; \
+		elif [ "$$EXISTING_ENV" = "dev" ] && [ "$(ENV)" = "prod" ]; then \
+			echo "Removing dev tag $$EXISTING_TAG (upgrading to prod)..."; \
+			git tag -d "$$EXISTING_TAG" 2>/dev/null || true; \
+			git push origin --delete "$$EXISTING_TAG" 2>/dev/null || true; \
+		elif [ "$$EXISTING_ENV" = "$(ENV)" ]; then \
+			echo "⚠️  Commit already tagged for $(ENV) ($$EXISTING_TAG), skipping"; \
+			exit 0; \
+		fi; \
+	fi; \
+	NEW_TAG="$(ENV)-$$(date +%Y-%m-%d-%H%M%S)"; \
+	git tag -a "$$NEW_TAG" -m "Deployment to $(ENV) on $$(date '+%Y-%m-%d %H:%M:%S')"; \
+	echo "✓ Created git tag: $$NEW_TAG"; \
 	echo ""; \
 	read -p "Push tag to remote? (Y/n) " -n 1 -r REPLY; \
 	echo; \
 	if [ -z "$$REPLY" ] || [ "$$REPLY" = "y" ] || [ "$$REPLY" = "Y" ]; then \
-		git push origin "$$LATEST_TAG" && echo "✓ Tag pushed to remote"; \
+		git push origin "$$NEW_TAG" && echo "✓ Tag pushed to remote"; \
 	else \
-		echo "Tag created locally only (push later with: git push origin $$LATEST_TAG)"; \
+		echo "Tag created locally only (push later with: git push origin $$NEW_TAG)"; \
 	fi
+
+# Full infrastructure deployment (ECR + images + all stacks)
 deploy-infra: deploy-ecr push-images deploy-shared deploy-voice-parser deploy-webhook-handler deploy-data-api
+	@echo "✓ Full infrastructure deployment complete for $(ENV)"
 
 # Testing shortcuts
 test-pre-deploy: test-voice-parser-pre-deploy test-webhook-handler-pre-deploy test-data-api-pre-deploy test-data-api-authorizer-pre-deploy test-shared-lib-unit
@@ -631,6 +680,24 @@ deploy-voice-parser: push-voice-parser
 		--profile $(PROFILE)
 	@echo "✓ Voice parser deployed successfully"
 
+# CloudFormation-only deployment (assumes image already pushed)
+deploy-voice-parser-cf:
+	@echo "Deploying voice-parser CloudFormation stack (no image rebuild)..."
+	./infrastructure/deploy.sh $(ENV) voice-parser
+	@echo "Forcing Lambda to update to latest image..."
+	@aws lambda update-function-code \
+		--function-name $(ENV)-voice-parser \
+		--image-uri $(VOICE_PARSER_REPO):$(TAG) \
+		--region $(REGION) \
+		--profile $(PROFILE) \
+		--query '[FunctionName,LastModified]' \
+		--output table > /dev/null
+	@aws lambda wait function-updated \
+		--function-name $(ENV)-voice-parser \
+		--region $(REGION) \
+		--profile $(PROFILE)
+	@echo "✓ Voice parser CF stack deployed"
+
 # --- Webhook Handler ---
 build-webhook-handler:
 	@echo "Building webhook-handler for environment: $(ENV)"
@@ -659,6 +726,24 @@ deploy-webhook-handler: push-webhook-handler
 		--profile $(PROFILE)
 	@echo "✓ Webhook handler deployed successfully"
 
+# CloudFormation-only deployment (assumes image already pushed)
+deploy-webhook-handler-cf:
+	@echo "Deploying webhook-handler CloudFormation stack (no image rebuild)..."
+	./infrastructure/deploy.sh $(ENV) webhook-handler
+	@echo "Forcing Lambda to update to latest image..."
+	@aws lambda update-function-code \
+		--function-name $(ENV)-webhook-handler \
+		--image-uri $(WEBHOOK_HANDLER_REPO):$(TAG) \
+		--region $(REGION) \
+		--profile $(PROFILE) \
+		--query '[FunctionName,LastModified]' \
+		--output table > /dev/null
+	@aws lambda wait function-updated \
+		--function-name $(ENV)-webhook-handler \
+		--region $(REGION) \
+		--profile $(PROFILE)
+	@echo "✓ Webhook handler CF stack deployed"
+
 # --- Data API Server ---
 build-data-api:
 	@echo "Building data-api for environment: $(ENV)"
@@ -686,6 +771,24 @@ deploy-data-api: push-data-api
 		--region $(REGION) \
 		--profile $(PROFILE)
 	@echo "✓ Data API deployed successfully"
+
+# CloudFormation-only deployment (assumes image already pushed)
+deploy-data-api-cf:
+	@echo "Deploying data-api CloudFormation stack (no image rebuild)..."
+	./infrastructure/deploy.sh $(ENV) data-api
+	@echo "Forcing Lambda to update to latest image..."
+	@aws lambda update-function-code \
+		--function-name $(ENV)-data-api \
+		--image-uri $(DATA_API_REPO):$(TAG) \
+		--region $(REGION) \
+		--profile $(PROFILE) \
+		--query '[FunctionName,LastModified]' \
+		--output table > /dev/null
+	@aws lambda wait function-updated \
+		--function-name $(ENV)-data-api \
+		--region $(REGION) \
+		--profile $(PROFILE)
+	@echo "✓ Data API CF stack deployed"
 
 # --- Data API Authorizer ---
 build-data-api-authorizer:
