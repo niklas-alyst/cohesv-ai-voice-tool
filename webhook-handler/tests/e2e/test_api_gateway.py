@@ -82,11 +82,13 @@ class TestTwilioWebhookHandler:
         response = httpx.post(
             url,
             headers=headers,
-            content=content
+            content=content,
+            timeout=30.0
         )
 
         assert response.status_code == 200, f"Got message {response.text}"
-        assert response.json().get("status") == "received"
+        # Lambda returns empty body on success (required by Twilio)
+        assert response.text == ""
 
     def test_invalid_number(self, api_gateway_url: str, validator: RequestValidator):
         """Test successful processing of a valid Twilio notification"""
@@ -122,7 +124,8 @@ class TestTwilioWebhookHandler:
         response = httpx.post(
             url,
             headers=headers,
-            content=content
+            content=content,
+            timeout=30.0
         )
 
         assert response.status_code == 401, f"Got message {response.text}"
