@@ -1,8 +1,11 @@
 import abc
+import logging
 import re
 from pydantic import BaseModel, Field, field_validator
 from typing import List
 import enum
+
+logger = logging.getLogger(__name__)
 
 class MessageIntent(str, enum.Enum):
     """The various types of intents possible for a message"""
@@ -86,14 +89,20 @@ class StructuredDocumentModel(abc.ABC, BaseModel):
         """
         # Try full format first
         full_message = f"{prefix}{self.format()}{suffix}"
-        if len(full_message) <= self.WHATSAPP_CHAR_LIMIT:
-            return full_message
 
+        len_full = len(full_message)
+        if  len_full <= self.WHATSAPP_CHAR_LIMIT:
+            return full_message
+        
+
+        logger.info(f"Full message too long ({len_full} chars), truncating")
         # Try truncated format
         truncated_message = f"{prefix}{self.format_truncated()}{suffix}"
-        if len(truncated_message) <= self.WHATSAPP_CHAR_LIMIT:
+        len_trunc = len(truncated_message)
+        if  len_trunc <= self.WHATSAPP_CHAR_LIMIT:
             return truncated_message
-
+        
+        logger.info(f"Truncated message too long ({len_trunc} chars), returning minimal message")
         # Fallback to minimal confirmation
         minimal = f"Successfully uploaded: {tag}"
         return f"{prefix}{minimal}{suffix}" if len(f"{prefix}{minimal}{suffix}") <= self.WHATSAPP_CHAR_LIMIT else minimal
